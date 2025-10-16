@@ -5,6 +5,7 @@ import Home from './pages/Home';
 import Statistics from './pages/Statistics';
 import Goals from './pages/Goals';
 import MatchHistory from './pages/MatchHistory';
+import Admin from './pages/Admin';
 import Header from './components/Header';
 import Navigation from './components/Navigation';
 import './App.css';
@@ -34,40 +35,33 @@ const AppContent = () => {
 
   return (
     <Router>
-      {user && <Header />}
-      <div className="app-container">
-        {user && <Navigation />}
-        <main className="main-content">
-          <Routes>
-            <Route path="/login" element={
-              <PublicRoute>
-                <Login />
-              </PublicRoute>
-            } />
-            <Route path="/" element={
-              <PrivateRoute>
-                <Home />
-              </PrivateRoute>
-            } />
-            <Route path="/statistics" element={
-              <PrivateRoute>
-                <Statistics />
-              </PrivateRoute>
-            } />
-            <Route path="/goals" element={
-              <PrivateRoute>
-                <Goals />
-              </PrivateRoute>
-            } />
-            <Route path="/history" element={
-              <PrivateRoute>
-                <MatchHistory />
-              </PrivateRoute>
-            } />
-            <Route path="*" element={<Navigate to="/" />} />
-          </Routes>
-        </main>
-      </div>
+      <Routes>
+        <Route path="/login" element={
+          <PublicRoute>
+            <Login />
+          </PublicRoute>
+        } />
+        <Route path="*" element={
+          <PrivateRoute>
+            <>
+              <Header />
+              <div className="app-container">
+                <Navigation />
+                <main className="main-content">
+                  <Routes>
+                    <Route path="/" element={<Home />} />
+                    <Route path="/statistics" element={<Statistics />} />
+                    <Route path="/goals" element={<Goals />} />
+                    <Route path="/history" element={<MatchHistory />} />
+                    <Route path="/admin" element={<Admin />} />
+                    <Route path="*" element={<Navigate to="/" />} />
+                  </Routes>
+                </main>
+              </div>
+            </>
+          </PrivateRoute>
+        } />
+      </Routes>
     </Router>
   );
 };

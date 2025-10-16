@@ -111,7 +111,7 @@
   left: 0;
   top: 0;
   bottom: 0;
-  background: linear-gradient(90deg, #28a745 0%, #20c997 100%);
+  background: linear-gradient(90deg, #007bff 0%, #ffffff 100%);
   transition: width 0.3s ease;
   border-radius: 4px;
 }

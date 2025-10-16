@@ -14,6 +14,16 @@
   flex-direction: column;
 }
 
+.event-form .form-group label {
+  font-weight: var(--weight-semibold);
+  color: var(--color-furia-black);
+  font-family: var(--font-heading);
+  font-size: var(--text-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: var(--space-xs);
+}
+
 .event-form .toggle-container {
   display: flex;
   gap: 10px;
@@ -22,22 +32,131 @@
 .event-form .toggle-btn {
   flex: 1;
   padding: 12px;
-  border: 2px solid #ddd;
-  background-color: white;
-  border-radius: 4px;
+  border: 2px solid var(--color-gray-lighter);
+  background-color: var(--color-white);
+  border-radius: var(--radius-md);
   cursor: pointer;
   font-size: 16px;
-  font-weight: 500;
-  transition: all 0.2s;
+  font-weight: var(--weight-semibold);
+  font-family: var(--font-heading);
+  transition: all var(--transition-base);
+  color: var(--color-gray);
 }
 
 .event-form .toggle-btn:hover {
-  border-color: #007bff;
+  border-color: var(--color-furia-blue);
+  background-color: rgba(30, 64, 175, 0.05);
 }
 
 .event-form .toggle-btn.active {
-  background-color: #007bff;
-  border-color: #007bff;
-  color: white;
+  background: linear-gradient(135deg, var(--color-furia-blue) 0%, var(--color-furia-blue-dark) 100%);
+  border-color: var(--color-furia-blue);
+  color: var(--color-white);
+  box-shadow: 0 4px 8px rgba(30, 64, 175, 0.2);
+}
+
+/* Estilos para el toggle de eventos recurrentes */
+.recurring-toggle {
+  margin: 10px 0;
+}
+
+.toggle-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  font-weight: var(--weight-semibold);
+  font-family: var(--font-heading);
+  color: var(--color-furia-black);
+  line-height: 1;
+}
+
+.toggle-label input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+  accent-color: var(--color-furia-blue);
+  border-radius: var(--radius-sm);
+  margin: 0;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-color: var(--color-white);
+  border: 2px solid var(--color-gray-lighter);
+  position: relative;
+  flex-shrink: 0;
+}
+
+.toggle-label input[type="checkbox"]:checked {
+  background-color: var(--color-furia-blue);
+  border-color: var(--color-furia-blue);
+}
+
+.toggle-label input[type="checkbox"]:checked::after {
+  content: '✓';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: var(--color-white);
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.toggle-text {
+  font-size: 16px;
+  user-select: none;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+}
+
+.recurring-options {
+  margin-top: 15px;
+  padding: 15px;
+  background-color: var(--color-gray-lightest);
+  border-radius: var(--radius-md);
+  border: 2px solid var(--color-furia-blue);
+  animation: slideDown 0.3s ease-out;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.recurring-options .form-group {
+  margin-bottom: 15px;
+}
+
+.recurring-options .form-group:last-child {
+  margin-bottom: 0;
+}
+
+.recurring-options .toggle-container {
+  margin-top: 8px;
+}
+
+.recurring-options .toggle-btn {
+  font-size: 14px;
+  padding: 10px;
+}
+
+/* Contador de caracteres */
+.char-count {
+  font-size: 12px;
+  color: var(--color-gray);
+  text-align: right;
+  margin-top: 4px;
+  font-family: var(--font-body);
 }
 

@@ -20,8 +20,12 @@ export interface Event {
   date: Date;
   title: string;
   description?: string;
+  location?: string;
   createdBy: string;
   createdAt: Date;
+  isRecurring?: boolean;
+  recurringType?: 'weekly' | 'monthly';
+  originalEventId?: string | null;
 }
 
 export interface Attendance {

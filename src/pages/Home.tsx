@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
-import { collection, query, orderBy, getDocs, where, Timestamp } from 'firebase/firestore';
+import { collection, query, orderBy, getDocs, where, Timestamp, writeBatch, doc } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { useAuth } from '../context/AuthContext';
 import { type Event, type Attendance } from '../types';
 import Modal from '../components/Modal';
 import CreateEvent from '../components/CreateEvent';
+import { Tooltip } from 'react-tooltip';
 import '../styles/Home.css';
 
 const Home = () => {
@@ -16,36 +17,63 @@ const Home = () => {
   const [attending, setAttending] = useState(false);
   const [comment, setComment] = useState('');
 
+  // Auto-cleanup hook
+
   useEffect(() => {
     loadEvents();
   }, []);
 
   const loadEvents = async () => {
     try {
-      // Get future events
+      // Get events within the next 2 weeks
       const now = new Date();
+      const bufferTime = new Date(now.getTime() + 60 * 60 * 1000); // 1 hour buffer for display
+      const twoWeeksFromNow = new Date(now.getTime() + (14 * 24 * 60 * 60 * 1000)); // 2 weeks from now
+      
       const eventsRef = collection(db, 'events');
       const q = query(eventsRef, orderBy('date', 'asc'));
       const snapshot = await getDocs(q);
       
       const eventsData: Event[] = [];
+      const pastEvents: string[] = [];
+      
       snapshot.forEach((doc) => {
         const data = doc.data();
         const eventDate = data.date instanceof Timestamp ? data.date.toDate() : new Date(data.date);
         
-        // Only include future events
-        if (eventDate >= now) {
+        // Check if event is past (with buffer)
+        if (eventDate < bufferTime) {
+          pastEvents.push(doc.id);
+        } else if (eventDate <= twoWeeksFromNow) {
+          // Only include events within the next 2 weeks
+          // Debug: Log event data to check for corruption
+          console.log('Event data:', {
+            id: doc.id,
+            title: data.title,
+            description: data.description,
+            location: data.location
+          });
+          
           eventsData.push({
             id: doc.id,
             type: data.type,
             date: eventDate,
             title: data.title,
-            description: data.description,
+            description: data.description ? data.description.trim() : '',
+            location: data.location ? data.location.trim() : '',
             createdBy: data.createdBy,
-            createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate() : new Date(data.createdAt)
+            createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate() : new Date(data.createdAt),
+            isRecurring: data.isRecurring,
+            recurringType: data.recurringType,
+            originalEventId: data.originalEventId
           });
         }
       });
+
+      // Archive past events if any
+      if (pastEvents.length > 0) {
+        await archivePastEvents(pastEvents);
+      }
 
       setEvents(eventsData);
 
@@ -75,6 +103,37 @@ const Home = () => {
       console.error('Error loading events:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const archivePastEvents = async (eventIds: string[]) => {
+    try {
+      const batch = writeBatch(db);
+      
+      // Delete past events from events collection
+      eventIds.forEach(eventId => {
+        const eventRef = doc(db, 'events', eventId);
+        batch.delete(eventRef);
+      });
+      
+      // Also delete related attendances
+      const attendancesRef = collection(db, 'attendances');
+      const attendanceSnapshot = await getDocs(attendancesRef);
+      
+      attendanceSnapshot.forEach((attendanceDoc) => {
+        const data = attendanceDoc.data();
+        if (eventIds.includes(data.eventId)) {
+          batch.delete(attendanceDoc.ref);
+        }
+      });
+      
+      await batch.commit();
+      
+      if (eventIds.length > 0) {
+        console.log(`Archived ${eventIds.length} past events`);
+      }
+    } catch (error) {
+      console.error('Error archiving past events:', error);
     }
   };
 
@@ -133,6 +192,62 @@ const Home = () => {
     });
   };
 
+  const copyLocation = async (location: string) => {
+    try {
+      await navigator.clipboard.writeText(location);
+      showToast('📍 Ubicación copiada al portapapeles', 'success');
+    } catch (error) {
+      console.error('Error copying to clipboard:', error);
+      // Fallback para navegadores que no soportan clipboard API
+      const textArea = document.createElement('textarea');
+      textArea.value = location;
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textArea);
+      showToast('📍 Ubicación copiada al portapapeles', 'success');
+    }
+  };
+
+  const showToast = (message: string, type: 'success' | 'error' = 'success') => {
+    // Create toast element
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    toast.textContent = message;
+    
+    // Add styles
+    Object.assign(toast.style, {
+      position: 'fixed',
+      top: '20px',
+      right: '20px',
+      padding: '12px 20px',
+      borderRadius: '8px',
+      color: 'white',
+      fontWeight: '600',
+      fontSize: '14px',
+      zIndex: '10000',
+      transform: 'translateX(100%)',
+      transition: 'transform 0.3s ease-in-out',
+      boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+      backgroundColor: type === 'success' ? '#28a745' : '#dc3545'
+    });
+    
+    document.body.appendChild(toast);
+    
+    // Animate in
+    setTimeout(() => {
+      toast.style.transform = 'translateX(0)';
+    }, 100);
+    
+    // Remove after 3 seconds
+    setTimeout(() => {
+      toast.style.transform = 'translateX(100%)';
+      setTimeout(() => {
+        document.body.removeChild(toast);
+      }, 300);
+    }, 3000);
+  };
+
   if (loading) {
     return <div className="loading">Cargando eventos...</div>;
   }
@@ -159,7 +274,39 @@ const Home = () => {
                 </div>
                 <h3>{event.title}</h3>
                 <p className="event-date">{formatDate(event.date)}</p>
-                {event.description && <p className="event-description">{event.description}</p>}
+                <div className="event-location">
+                  <section className="location-container">
+                    <p className="location-label">📍</p>
+                    <p className="location-text">{event.location || 'Ubicación no especificada'}</p>
+                  </section>
+                  <section className="location-button-container">
+                    <button 
+                      onClick={() => copyLocation(event.location || 'Ubicación no especificada')}
+                      className="copy-location-btn"
+                      data-tooltip-id={`copy-tooltip-${event.id}`}
+                      data-tooltip-content="Copiar ubicación"
+                      aria-label="Copiar ubicación al portapapeles"
+                    >
+                      ⧉
+                    </button>
+                    <Tooltip 
+                      id={`copy-tooltip-${event.id}`}
+                      place="top"
+                      style={{
+                        backgroundColor: 'rgba(0, 0, 0, 0.9)',
+                        color: 'white',
+                        fontSize: '12px',
+                        fontFamily: 'var(--font-body)',
+                        fontWeight: '500',
+                        borderRadius: '6px',
+                        padding: '6px 10px'
+                      }}
+                    />
+                  </section>
+                </div>
+                {event.description && event.description.trim() && (
+                  <p className="event-description">{event.description}</p>
+                )}
                 
                 <div className="event-status">
                   {isRegistered && (

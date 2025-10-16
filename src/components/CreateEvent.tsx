@@ -16,34 +16,89 @@ const CreateEvent = ({ onEventCreated }: CreateEventProps) => {
   const [eventType, setEventType] = useState<EventType>('TRAINING');
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  const [location, setLocation] = useState('');
   const [date, setDate] = useState('');
   const [time, setTime] = useState('');
+  const [isRecurring, setIsRecurring] = useState(false);
+  const [recurringType, setRecurringType] = useState<'weekly' | 'monthly'>('weekly');
+  const [recurringEndDate, setRecurringEndDate] = useState('');
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async () => {
     if (!title || !date || !time || !user) return;
+    if (isRecurring && !recurringEndDate) {
+      alert('Debes especificar una fecha de finalización para eventos recurrentes');
+      return;
+    }
 
     setLoading(true);
     try {
-      const eventDate = new Date(`${date}T${time}`);
+      const startDate = new Date(`${date}T${time}`);
+      const endDate = isRecurring ? new Date(`${recurringEndDate}T${time}`) : startDate;
       
-      await addDoc(collection(db, 'events'), {
-        type: eventType,
-        title,
-        description: description.trim(),
-        date: eventDate,
-        createdBy: user.id,
-        createdAt: serverTimestamp()
-      });
+      const eventsToCreate = [];
+      const currentDate = new Date(startDate);
+      
+      if (isRecurring) {
+        // Crear eventos recurrentes
+        while (currentDate <= endDate) {
+          eventsToCreate.push({
+            type: eventType,
+            title,
+            description: description.trim(),
+            location: location.trim(),
+            date: new Date(currentDate),
+            createdBy: user.id,
+            createdAt: serverTimestamp(),
+            isRecurring: true,
+            recurringType,
+            originalEventId: null // Se puede usar para agrupar eventos relacionados
+          });
+          
+          // Incrementar fecha según el tipo de recurrencia
+          if (recurringType === 'weekly') {
+            currentDate.setDate(currentDate.getDate() + 7);
+          } else if (recurringType === 'monthly') {
+            currentDate.setMonth(currentDate.getMonth() + 1);
+          }
+        }
+      } else {
+        // Crear evento único
+        eventsToCreate.push({
+          type: eventType,
+          title,
+          description: description.trim(),
+          location: location.trim(),
+          date: startDate,
+          createdBy: user.id,
+          createdAt: serverTimestamp(),
+          isRecurring: false
+        });
+      }
+
+      // Crear todos los eventos
+      const batch = [];
+      for (const eventData of eventsToCreate) {
+        batch.push(addDoc(collection(db, 'events'), eventData));
+      }
+      
+      await Promise.all(batch);
 
       // Reset form
       setTitle('');
       setDescription('');
+      setLocation('');
       setDate('');
       setTime('');
       setEventType('TRAINING');
+      setIsRecurring(false);
+      setRecurringType('weekly');
+      setRecurringEndDate('');
       setShowModal(false);
       onEventCreated();
+      
+      const eventCount = eventsToCreate.length;
+      alert(`¡Evento${eventCount > 1 ? 's' : ''} creado${eventCount > 1 ? 's' : ''} exitosamente! ${eventCount > 1 ? `Se crearon ${eventCount} eventos.` : ''}`);
     } catch (error) {
       console.error('Error creating event:', error);
       alert('Error al crear el evento');
@@ -90,7 +145,7 @@ const CreateEvent = ({ onEventCreated }: CreateEventProps) => {
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="Ej: Entrenamiento Semanal"
-                maxLength={100}
+                maxLength={35}
               />
             </div>
 
@@ -113,14 +168,71 @@ const CreateEvent = ({ onEventCreated }: CreateEventProps) => {
             </div>
 
             <div className="form-group">
+              <label>Ubicación:</label>
+              <input
+                type="text"
+                value={location}
+                onChange={(e) => setLocation(e.target.value)}
+                placeholder="Ej: Liverpool, Francisco Vazquez 4.601"
+                maxLength={50}
+              />
+            </div>
+
+            <div className="form-group">
+              <div className="recurring-toggle">
+                <div className="toggle-label">
+                  <span className="toggle-text">🔄 Evento Recurrente</span>
+                  <input
+                    type="checkbox"
+                    checked={isRecurring}
+                    onChange={(e) => setIsRecurring(e.target.checked)}
+                  />
+                </div>
+              </div>
+              
+              {isRecurring && (
+                <div className="recurring-options">
+                  <div className="form-group">
+                    <label>Tipo de Repetición:</label>
+                    <div className="toggle-container">
+                      <button
+                        className={`toggle-btn ${recurringType === 'weekly' ? 'active' : ''}`}
+                        onClick={() => setRecurringType('weekly')}
+                      >
+                        📅 Semanal
+                      </button>
+                      <button
+                        className={`toggle-btn ${recurringType === 'monthly' ? 'active' : ''}`}
+                        onClick={() => setRecurringType('monthly')}
+                      >
+                        📆 Mensual
+                      </button>
+                    </div>
+                  </div>
+                  
+                  <div className="form-group">
+                    <label>Fecha de Finalización:</label>
+                    <input
+                      type="date"
+                      value={recurringEndDate}
+                      onChange={(e) => setRecurringEndDate(e.target.value)}
+                      min={date}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="form-group">
               <label>Descripción (opcional):</label>
               <textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="Información adicional..."
-                maxLength={200}
+                maxLength={80}
                 rows={3}
               />
+              <span className="char-count">{description.length}/80</span>
             </div>
 
             <div className="modal-actions">
