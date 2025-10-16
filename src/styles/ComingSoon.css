@@ -23,7 +23,7 @@
 .coming-soon-text {
   font-size: 1.5rem;
   font-weight: 700;
-  color: #007bff;
+  color: var(--color-furia-blue);
   margin-bottom: 15px;
   letter-spacing: 2px;
 }

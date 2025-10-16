@@ -35,7 +35,7 @@
 .stat-number {
   font-size: 2.5rem;
   font-weight: 700;
-  color: #007bff;
+  color: var(--color-furia-blue);
   margin: 0;
 }
 
@@ -111,7 +111,7 @@
   left: 0;
   top: 0;
   bottom: 0;
-  background: linear-gradient(90deg, #007bff 0%, #ffffff 100%);
+  background: linear-gradient(90deg, var(--color-furia-blue) 0%, #ffffff 100%);
   transition: width 0.3s ease;
   border-radius: 4px;
 }

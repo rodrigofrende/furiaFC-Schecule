@@ -92,7 +92,7 @@
 }
 
 .warning-section h3 {
-  color: #e74c3c;
+  color: var(--color-danger);
   margin-bottom: 15px;
   font-size: 24px;
   text-align: center;
@@ -149,7 +149,7 @@
 }
 
 .confirmation-actions .btn-secondary {
-  background-color: #6c757d;
+  background-color: var(--color-gray-medium);
   color: white;
   border: none;
   padding: 12px 20px;
@@ -178,7 +178,7 @@
 }
 
 .confirmation-actions .btn-danger {
-  background-color: #e74c3c;
+  background-color: var(--color-danger);
   color: white;
   border: none;
   padding: 12px 20px;
@@ -199,7 +199,7 @@
 }
 
 .confirmation-actions .btn-danger:hover:not(:disabled) {
-  background-color: #c0392b;
+  background-color: #b91c1c;
   transform: translateY(-1px);
 }
 

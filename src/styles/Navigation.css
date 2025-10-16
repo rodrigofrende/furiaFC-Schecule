@@ -183,8 +183,8 @@
   }
   
   .nav-logo {
-    width: 140px; /* Even larger logo on large desktop */
-    height: 140px;
+    width: 200px; /* Even larger logo on large desktop */
+    height: 200px;
   }
 }
 
