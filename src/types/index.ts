@@ -28,12 +28,15 @@ export interface Event {
   originalEventId?: string | null;
 }
 
+export type AttendanceStatus = 'attending' | 'not-attending' | 'pending' | 'not-voted';
+
 export interface Attendance {
   id: string;
   eventId: string;
   userId: string;
   userDisplayName: string;
-  attending: boolean;
+  attending: boolean; // Keep for backward compatibility
+  status?: AttendanceStatus; // New field for three-state system
   comment?: string;
   createdAt: Date;
   updatedAt: Date;
@@ -45,5 +48,17 @@ export interface AttendanceStats {
   totalEvents: number;
   attended: number;
   percentage: number;
+}
+
+// New stats collection type
+export interface PlayerStats {
+  userId: string;
+  displayName: string;
+  matchesAttended: number;
+  trainingsAttended: number;
+  totalAttended: number;
+  goals?: number;
+  assists?: number;
+  lastUpdated: Date;
 }
 

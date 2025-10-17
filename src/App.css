@@ -64,6 +64,11 @@
   letter-spacing: 0.5px;
   transition: all var(--transition-base);
   box-shadow: var(--shadow-sm);
+  text-align: center;
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  vertical-align: middle;
 }
 
 .btn-primary {

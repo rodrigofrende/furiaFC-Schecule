@@ -41,6 +41,10 @@
   font-family: var(--font-heading);
   transition: all var(--transition-base);
   color: var(--color-gray);
+  text-align: center;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
 .event-form .toggle-btn:hover {

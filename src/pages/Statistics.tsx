@@ -1,13 +1,23 @@
 import { useState, useEffect } from 'react';
-import { collection, getDocs, Timestamp } from 'firebase/firestore';
+import { collection, getDocs, doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../config/firebase';
-import { type Event, type Attendance, type AttendanceStats } from '../types';
+import { useAuth } from '../context/AuthContext';
+import { type PlayerStats } from '../types';
+import Modal from '../components/Modal';
+import { Tooltip } from 'react-tooltip';
 import '../styles/Statistics.css';
 
 const Statistics = () => {
-  const [stats, setStats] = useState<AttendanceStats[]>([]);
+  const { user } = useAuth();
+  const [stats, setStats] = useState<PlayerStats[]>([]);
   const [loading, setLoading] = useState(true);
   const [totalEvents, setTotalEvents] = useState(0);
+  const [editingPlayer, setEditingPlayer] = useState<PlayerStats | null>(null);
+  const [editFormData, setEditFormData] = useState({
+    matchesAttended: 0,
+    trainingsAttended: 0
+  });
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     loadStatistics();
@@ -15,94 +25,129 @@ const Statistics = () => {
 
   const loadStatistics = async () => {
     try {
-      // Get all past events
-      const eventsRef = collection(db, 'events');
-      const eventsSnapshot = await getDocs(eventsRef);
+      // STEP 1: Get all users from users collection
+      const usersRef = collection(db, 'users');
+      const usersSnapshot = await getDocs(usersRef);
       
-      const pastEvents: Event[] = [];
-      const now = new Date();
-      
-      eventsSnapshot.forEach((doc) => {
-        const data = doc.data();
-        const eventDate = data.date instanceof Timestamp ? data.date.toDate() : new Date(data.date);
-        
-        // Only count past events for statistics
-        if (eventDate < now) {
-          pastEvents.push({
-            id: doc.id,
-            type: data.type,
-            date: eventDate,
-            title: data.title,
-            createdBy: data.createdBy,
-            createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate() : new Date(data.createdAt)
-          });
+      const usersMap = new Map<string, any>();
+      usersSnapshot.forEach((userDoc) => {
+        const userData = userDoc.data();
+        if (userData.email) {
+          usersMap.set(userData.email, userData);
         }
       });
 
-      setTotalEvents(pastEvents.length);
+      // STEP 2: Get total events count from archive
+      const archivedEventsRef = collection(db, 'events_archive');
+      const archivedEventsSnapshot = await getDocs(archivedEventsRef);
+      setTotalEvents(archivedEventsSnapshot.size);
 
-      if (pastEvents.length === 0) {
-        setLoading(false);
-        return;
-      }
-
-      // Get all attendances
-      const attendancesRef = collection(db, 'attendances');
-      const attendancesSnapshot = await getDocs(attendancesRef);
+      // STEP 3: Get stats from stats collection (manual edits have priority)
+      const statsRef = collection(db, 'stats');
+      const statsSnapshot = await getDocs(statsRef);
       
-      const attendancesMap = new Map<string, Attendance[]>();
-      
-      attendancesSnapshot.forEach((doc) => {
+      const statsMap = new Map<string, any>();
+      statsSnapshot.forEach((doc) => {
         const data = doc.data();
-        const userId = data.userId;
-        
-        if (!attendancesMap.has(userId)) {
-          attendancesMap.set(userId, []);
-        }
-        
-        attendancesMap.get(userId)!.push({
-          id: doc.id,
-          eventId: data.eventId,
-          userId: data.userId,
-          userDisplayName: data.userDisplayName,
-          attending: data.attending,
-          comment: data.comment,
-          createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate() : new Date(data.createdAt),
-          updatedAt: data.updatedAt instanceof Timestamp ? data.updatedAt.toDate() : new Date(data.updatedAt)
-        });
+        statsMap.set(doc.id, data); // doc.id should be the user email
       });
 
-      // Calculate stats for each user
-      const statsArray: AttendanceStats[] = [];
-      const pastEventIds = new Set(pastEvents.map(e => e.id));
-
-      attendancesMap.forEach((userAttendances, userId) => {
-        // Filter attendances for past events only
-        const relevantAttendances = userAttendances.filter(a => pastEventIds.has(a.eventId));
+      // STEP 4: Build stats array - use stats collection as source of truth
+      const statsArray: PlayerStats[] = [];
+      
+      usersMap.forEach((userData, userEmail) => {
+        // Check if we have stats data for this user
+        const userStats = statsMap.get(userEmail);
         
-        if (relevantAttendances.length > 0) {
-          const attended = relevantAttendances.filter(a => a.attending).length;
-          const displayName = relevantAttendances[0].userDisplayName;
-          
+        if (userStats) {
+          // Use existing stats from stats collection
           statsArray.push({
-            userId,
-            displayName,
-            totalEvents: pastEvents.length,
-            attended,
-            percentage: pastEvents.length > 0 ? (attended / pastEvents.length) * 100 : 0
+            userId: userEmail,
+            displayName: userData.alias || userEmail,
+            matchesAttended: userStats.matchesAttended || 0,
+            trainingsAttended: userStats.trainingsAttended || 0,
+            totalAttended: userStats.totalAttended || 0,
+            goals: userStats.goals || 0,
+            assists: userStats.assists || 0,
+            lastUpdated: userStats.lastUpdated?.toDate() || new Date()
+          });
+        } else {
+          // No stats yet for this user, initialize with zeros
+          statsArray.push({
+            userId: userEmail,
+            displayName: userData.alias || userEmail,
+            matchesAttended: 0,
+            trainingsAttended: 0,
+            totalAttended: 0,
+            goals: 0,
+            assists: 0,
+            lastUpdated: new Date()
           });
         }
       });
 
-      // Sort by percentage (descending)
-      statsArray.sort((a, b) => b.percentage - a.percentage);
+      // Sort by total attended (descending)
+      statsArray.sort((a, b) => b.totalAttended - a.totalAttended);
 
+      console.log(`✅ Loaded statistics for ${statsArray.length} users from stats collection`);
       setStats(statsArray);
     } catch (error) {
       console.error('Error loading statistics:', error);
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleEditPlayer = (playerStat: PlayerStats) => {
+    setEditingPlayer(playerStat);
+    setEditFormData({
+      matchesAttended: playerStat.matchesAttended,
+      trainingsAttended: playerStat.trainingsAttended
+    });
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingPlayer) return;
+
+    setSaving(true);
+    try {
+      const statsRef = doc(db, 'stats', editingPlayer.userId);
+      const totalAttended = editFormData.matchesAttended + editFormData.trainingsAttended;
+      
+      await setDoc(statsRef, {
+        userId: editingPlayer.userId,
+        displayName: editingPlayer.displayName,
+        matchesAttended: editFormData.matchesAttended,
+        trainingsAttended: editFormData.trainingsAttended,
+        totalAttended,
+        goals: editingPlayer.goals || 0,
+        assists: editingPlayer.assists || 0,
+        lastUpdated: serverTimestamp()
+      }, { merge: true });
+
+      alert('✅ Estadísticas actualizadas correctamente');
+      setEditingPlayer(null);
+      await loadStatistics(); // Reload stats
+    } catch (error) {
+      console.error('Error updating stats:', error);
+      alert('❌ Error al actualizar las estadísticas');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleIncrement = (field: 'matchesAttended' | 'trainingsAttended') => {
+    setEditFormData(prev => ({
+      ...prev,
+      [field]: prev[field] + 1
+    }));
+  };
+
+  const handleDecrement = (field: 'matchesAttended' | 'trainingsAttended') => {
+    setEditFormData(prev => ({
+      ...prev,
+      [field]: Math.max(0, prev[field] - 1) // No permitir negativos
+    }));
   };
 
   if (loading) {
@@ -113,63 +158,189 @@ const Statistics = () => {
     <div className="statistics-container">
       <h1>Estadísticas de Asistencia</h1>
 
-      {totalEvents === 0 ? (
-        <p className="no-data">Aún no hay eventos registrados para mostrar estadísticas</p>
+      {stats.length === 0 ? (
+        <div className="no-data">
+          <p>Aún no hay estadísticas registradas. Las estadísticas se calculan automáticamente a partir de los eventos archivados.</p>
+        </div>
       ) : (
         <>
           <div className="stats-summary">
             <div className="stat-card">
-              <h3>Total de Eventos</h3>
-              <p className="stat-number">{totalEvents}</p>
-            </div>
-            <div className="stat-card">
               <h3>Jugadoras Registradas</h3>
               <p className="stat-number">{stats.length}</p>
             </div>
+            <div className="stat-card">
+              <h3>Total Asistencias</h3>
+              <p className="stat-number">{stats.reduce((sum, s) => sum + s.totalAttended, 0)}</p>
+            </div>
+            <div className="stat-card">
+              <h3>Total de Eventos</h3>
+              <p className="stat-number">{totalEvents}</p>
+            </div>
           </div>
 
-          {stats.length === 0 ? (
-            <p className="no-data">No hay asistencias registradas todavía</p>
-          ) : (
-            <div className="stats-table-container">
-              <table className="stats-table">
-                <thead>
-                  <tr>
-                    <th>Posición</th>
-                    <th>Jugadora</th>
-                    <th>Asistencias</th>
-                    <th>Porcentaje</th>
+          <div className="stats-table-container">
+            <table className="stats-table">
+              <thead>
+                <tr>
+                  <th>Posición</th>
+                  <th>Jugadora</th>
+                  <th>Estadísticas</th>
+                  <th>Total</th>
+                  {user?.role === 'ADMIN' && <th>Acciones</th>}
+                </tr>
+              </thead>
+              <tbody>
+                {stats.map((stat, index) => (
+                  <tr key={stat.userId} className={index < 3 ? `top-${index + 1}` : ''}>
+                    <td className="position">
+                      {index === 0 && '🥇'}
+                      {index === 1 && '🥈'}
+                      {index === 2 && '🥉'}
+                      {index > 2 && `#${index + 1}`}
+                    </td>
+                    <td className="player-name">{stat.displayName}</td>
+                    <td className="stats-cell">
+                      <div className="stat-row">
+                        <span className="stat-icon">⚽</span>
+                        <span className="stat-label">Partidos</span>
+                        <span className="stat-number">{stat.matchesAttended}</span>
+                      </div>
+                      <div className="stat-row">
+                        <span className="stat-icon">🏃</span>
+                        <span className="stat-label">Entrenamientos</span>
+                        <span className="stat-number">{stat.trainingsAttended}</span>
+                      </div>
+                    </td>
+                    <td className="stat-total">
+                      <strong>{stat.totalAttended}</strong>
+                    </td>
+                    {user?.role === 'ADMIN' && (
+                      <td className="actions-cell">
+                        <button
+                          onClick={() => handleEditPlayer(stat)}
+                          className="btn-icon-edit"
+                          data-tooltip-id="edit-stats-tooltip"
+                          data-tooltip-content="Editar estadísticas"
+                        >
+                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                          </svg>
+                        </button>
+                      </td>
+                    )}
                   </tr>
-                </thead>
-                <tbody>
-                  {stats.map((stat, index) => (
-                    <tr key={stat.userId} className={index < 3 ? `top-${index + 1}` : ''}>
-                      <td className="position">
-                        {index === 0 && '🥇'}
-                        {index === 1 && '🥈'}
-                        {index === 2 && '🥉'}
-                        {index > 2 && `#${index + 1}`}
-                      </td>
-                      <td className="player-name">{stat.displayName}</td>
-                      <td>{stat.attended} / {stat.totalEvents}</td>
-                      <td>
-                        <div className="percentage-container">
-                          <div 
-                            className="percentage-bar" 
-                            style={{ width: `${stat.percentage}%` }}
-                          />
-                          <span className="percentage-text">
-                            {stat.percentage.toFixed(1)}%
-                          </span>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+                ))}
+              </tbody>
+            </table>
+          </div>
         </>
+      )}
+
+      {/* Tooltip for edit button */}
+      {user?.role === 'ADMIN' && (
+        <Tooltip 
+          id="edit-stats-tooltip" 
+          place="left"
+          className="stats-tooltip"
+          style={{ zIndex: 'var(--z-tooltip)' }}
+        />
+      )}
+
+      {/* Modal de edición para admins */}
+      {editingPlayer && (
+        <Modal 
+          onClose={() => setEditingPlayer(null)} 
+          title={`Editar Estadísticas - ${editingPlayer.displayName}`}
+        >
+          <div className="edit-stats-form">
+            <p className="info-text">
+              💡 Ajusta manualmente las estadísticas si hay discrepancias entre lo registrado y la realidad.
+            </p>
+
+            <div className="stat-edit-group">
+              <label>⚽ Partidos Asistidos:</label>
+              <div className="stat-input-group">
+                <button 
+                  onClick={() => handleDecrement('matchesAttended')}
+                  className="btn-counter"
+                  disabled={saving}
+                >
+                  -
+                </button>
+                <input
+                  type="number"
+                  value={editFormData.matchesAttended}
+                  onChange={(e) => setEditFormData(prev => ({
+                    ...prev,
+                    matchesAttended: Math.max(0, parseInt(e.target.value) || 0)
+                  }))}
+                  min="0"
+                  disabled={saving}
+                />
+                <button 
+                  onClick={() => handleIncrement('matchesAttended')}
+                  className="btn-counter"
+                  disabled={saving}
+                >
+                  +
+                </button>
+              </div>
+            </div>
+
+            <div className="stat-edit-group">
+              <label>🏃 Entrenamientos Asistidos:</label>
+              <div className="stat-input-group">
+                <button 
+                  onClick={() => handleDecrement('trainingsAttended')}
+                  className="btn-counter"
+                  disabled={saving}
+                >
+                  -
+                </button>
+                <input
+                  type="number"
+                  value={editFormData.trainingsAttended}
+                  onChange={(e) => setEditFormData(prev => ({
+                    ...prev,
+                    trainingsAttended: Math.max(0, parseInt(e.target.value) || 0)
+                  }))}
+                  min="0"
+                  disabled={saving}
+                />
+                <button 
+                  onClick={() => handleIncrement('trainingsAttended')}
+                  className="btn-counter"
+                  disabled={saving}
+                >
+                  +
+                </button>
+              </div>
+            </div>
+
+            <div className="total-preview">
+              <strong>Total:</strong> {editFormData.matchesAttended + editFormData.trainingsAttended}
+            </div>
+
+            <div className="modal-actions">
+              <button 
+                onClick={() => setEditingPlayer(null)} 
+                className="btn-secondary"
+                disabled={saving}
+              >
+                Cancelar
+              </button>
+              <button 
+                onClick={handleSaveEdit}
+                className="btn-primary"
+                disabled={saving}
+              >
+                {saving ? 'Guardando...' : '💾 Guardar Cambios'}
+              </button>
+            </div>
+          </div>
+        </Modal>
       )}
     </div>
   );

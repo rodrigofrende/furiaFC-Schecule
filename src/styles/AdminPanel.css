@@ -15,9 +15,15 @@
 }
 
 .admin-actions {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
   gap: var(--space-xl);
+}
+
+@media (max-width: 768px) {
+  .admin-actions {
+    grid-template-columns: 1fr;
+  }
 }
 
 .action-card {
@@ -25,7 +31,7 @@
   border-radius: var(--radius-lg);
   padding: var(--space-xl);
   box-shadow: var(--shadow-lg);
-  border: 2px solid var(--color-danger);
+  border: 2px solid var(--color-gray-lighter);
 }
 
 .action-card h3 {
@@ -51,6 +57,14 @@
   font-family: var(--font-heading);
   text-transform: uppercase;
   letter-spacing: 0.5px;
+}
+
+.info-text {
+  color: var(--color-furia-blue) !important;
+  font-weight: var(--weight-semibold);
+  font-size: var(--text-sm);
+  font-family: var(--font-body);
+  margin-bottom: var(--space-md);
 }
 
 .btn-danger {
@@ -533,6 +547,19 @@
   margin: 0;
 }
 
+/* Stats admin buttons container */
+.stats-admin-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  margin: var(--space-md) 0;
+}
+
+.stats-admin-buttons .btn-primary {
+  width: 100%;
+  justify-content: center;
+}
+
 /* Responsive para tabla */
 @media (max-width: 768px) {
   .section-header {
@@ -590,6 +617,7 @@
     width: 100%;
     padding: var(--space-md);
     font-size: var(--text-sm);
+    text-align: center;
   }
   
   /* Mejorar el formulario en mobile muy pequeño */

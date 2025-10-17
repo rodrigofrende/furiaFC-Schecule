@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import Modal from './Modal';
 import '../styles/AdminPanel.css';
 import type { UserRole } from '../types';
+import { initializeStatsForAllUsers, recalculateAllStats, cleanupDuplicateStats, syncStatsWithUsers } from '../utils/initializeStats';
 
 interface UserData {
   id: string;
@@ -28,6 +29,9 @@ const AdminPanel = () => {
     role: 'PLAYER' as UserRole
   });
   const [emailError, setEmailError] = useState('');
+  const [recalculatingStats, setRecalculatingStats] = useState(false);
+  const [cleaningStats, setCleaningStats] = useState(false);
+  const [syncingStats, setSyncingStats] = useState(false);
 
   // Solo mostrar para administradores
   if (user?.role !== 'ADMIN') {
@@ -207,6 +211,82 @@ const AdminPanel = () => {
     setShowDeleteModal(true);
   };
 
+  const handleInitializeStats = async () => {
+    if (!confirm('¿Deseas inicializar las estadísticas para todos los usuarios?\n\nEsto creará documentos de estadísticas para usuarios que aún no los tengan.')) {
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const count = await initializeStatsForAllUsers();
+      alert(`✅ Estadísticas inicializadas correctamente\n${count} usuario(s) inicializado(s)`);
+    } catch (error) {
+      console.error('Error initializing stats:', error);
+      alert('❌ Error al inicializar las estadísticas');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRecalculateStats = async () => {
+    if (!confirm('¿Deseas recalcular las estadísticas de todos los usuarios?\n\nEsto actualizará las estadísticas basándose en los eventos archivados.')) {
+      return;
+    }
+
+    setRecalculatingStats(true);
+    try {
+      const recalculatedCount = await recalculateAllStats();
+      alert(`✅ Se recalcularon estadísticas para ${recalculatedCount} usuario(s) basándose en eventos archivados`);
+    } catch (error) {
+      console.error('Error recalculating stats:', error);
+      alert('❌ Error al recalcular estadísticas');
+    } finally {
+      setRecalculatingStats(false);
+    }
+  };
+
+  const handleCleanupStats = async () => {
+    if (!confirm('¿Deseas limpiar los duplicados en las estadísticas?\n\nEsto consolidará las entradas duplicadas de estadísticas.')) {
+      return;
+    }
+
+    setCleaningStats(true);
+    try {
+      const cleanedCount = await cleanupDuplicateStats();
+      if (cleanedCount > 0) {
+        alert(`✅ Se consolidaron ${cleanedCount} entradas duplicadas de estadísticas`);
+      } else {
+        alert('ℹ️ No se encontraron duplicados para consolidar');
+      }
+    } catch (error) {
+      console.error('Error cleaning up stats:', error);
+      alert('❌ Error al limpiar estadísticas duplicadas');
+    } finally {
+      setCleaningStats(false);
+    }
+  };
+
+  const handleSyncStats = async () => {
+    if (!confirm('¿Deseas sincronizar las estadísticas con la lista de usuarios?\n\nEsto eliminará las estadísticas de usuarios que ya no existen.')) {
+      return;
+    }
+
+    setSyncingStats(true);
+    try {
+      const syncedCount = await syncStatsWithUsers();
+      if (syncedCount > 0) {
+        alert(`✅ Se sincronizaron las estadísticas con la lista de usuarios. Se removieron ${syncedCount} entradas huérfanas.`);
+      } else {
+        alert('ℹ️ Las estadísticas ya están sincronizadas con la lista de usuarios');
+      }
+    } catch (error) {
+      console.error('Error syncing stats:', error);
+      alert('❌ Error al sincronizar estadísticas');
+    } finally {
+      setSyncingStats(false);
+    }
+  };
+
   return (
     <div className="admin-panel">
       <h2 style={{ color: 'var(--color-furia-black)', marginBottom: '20px' }}>🔧 Panel de Administración</h2>
@@ -289,8 +369,53 @@ const AdminPanel = () => {
         </div>
       </div>
 
-      {/* Sección de Limpieza de Datos */}
+      {/* Sección de Gestión de Estadísticas */}
       <div className="admin-actions">
+        <div className="action-card">
+          <h3>📊 Gestión de Estadísticas</h3>
+          <p>Herramientas para administrar y mantener las estadísticas de los usuarios.</p>
+          
+          <div className="stats-admin-buttons">
+            <button 
+              onClick={handleInitializeStats}
+              className="btn-primary"
+              disabled={loading}
+              title="Crear estadísticas iniciales para usuarios que no las tengan"
+            >
+              📊 Inicializar Estadísticas
+            </button>
+            
+            <button 
+              onClick={handleRecalculateStats}
+              className="btn-primary"
+              disabled={recalculatingStats}
+              title="Recalcular estadísticas basándose en eventos archivados"
+            >
+              {recalculatingStats ? 'Recalculando...' : '🔄 Recalcular Estadísticas'}
+            </button>
+            
+            <button 
+              onClick={handleCleanupStats}
+              className="btn-primary"
+              disabled={cleaningStats}
+              title="Eliminar entradas duplicadas en las estadísticas"
+            >
+              {cleaningStats ? 'Limpiando...' : '🧹 Limpiar Duplicados'}
+            </button>
+            
+            <button 
+              onClick={handleSyncStats}
+              className="btn-primary"
+              disabled={syncingStats}
+              title="Sincronizar estadísticas con la lista de usuarios actual"
+            >
+              {syncingStats ? 'Sincronizando...' : '🔗 Sincronizar con Usuarios'}
+            </button>
+          </div>
+          
+          <p className="info-text">💡 Usa estas herramientas para mantener las estadísticas actualizadas y sin errores</p>
+        </div>
+
         <div className="action-card">
           <h3>🗑️ Limpieza de Datos</h3>
           <p>Elimina todos los eventos y asistencias de la base de datos.</p>

@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
-import { collection, query, orderBy, getDocs, where, Timestamp, writeBatch, doc } from 'firebase/firestore';
+import { collection, query, orderBy, getDocs, where, Timestamp, writeBatch, doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { useAuth } from '../context/AuthContext';
-import { type Event, type Attendance } from '../types';
+import { type Event, type Attendance, type AttendanceStatus, type EventType } from '../types';
 import Modal from '../components/Modal';
 import CreateEvent from '../components/CreateEvent';
 import { Tooltip } from 'react-tooltip';
@@ -14,21 +14,69 @@ const Home = () => {
   const [attendances, setAttendances] = useState<Record<string, Attendance>>({});
   const [loading, setLoading] = useState(true);
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
-  const [attending, setAttending] = useState(false);
+  const [attendanceStatus, setAttendanceStatus] = useState<AttendanceStatus>('pending');
   const [comment, setComment] = useState('');
+  const [savingAttendance, setSavingAttendance] = useState(false);
+  const [showParticipantsModal, setShowParticipantsModal] = useState(false);
+  const [loadingModal, setLoadingModal] = useState(false);
+  const [eventParticipants, setEventParticipants] = useState<{
+    attending: Attendance[];
+    pending: Attendance[];
+    notAttending: Attendance[];
+    notVoted: Attendance[];
+  }>({ attending: [], pending: [], notAttending: [], notVoted: [] });
+  const [totalUsers, setTotalUsers] = useState(0);
+  const [eventParticipantsCount, setEventParticipantsCount] = useState<Record<string, number>>({});
 
   // Auto-cleanup hook
 
   useEffect(() => {
     loadEvents();
+    loadTotalUsers();
   }, []);
+
+  const loadTotalUsers = async () => {
+    try {
+      const usersRef = collection(db, 'users');
+      const usersSnapshot = await getDocs(usersRef);
+      setTotalUsers(usersSnapshot.size);
+    } catch (error) {
+      console.error('Error loading total users:', error);
+    }
+  };
+
+
+  const loadEventParticipantsCount = async (eventIds: string[]) => {
+    try {
+      const attendancesRef = collection(db, 'attendances');
+      const participantsSnapshot = await getDocs(attendancesRef);
+      
+      const countMap: Record<string, number> = {};
+      
+      // Initialize all events with 0
+      eventIds.forEach(eventId => {
+        countMap[eventId] = 0;
+      });
+      
+      // Count participants for each event
+      participantsSnapshot.forEach((doc) => {
+        const data = doc.data();
+        if (eventIds.includes(data.eventId)) {
+          countMap[data.eventId] = (countMap[data.eventId] || 0) + 1;
+        }
+      });
+      
+      setEventParticipantsCount(countMap);
+    } catch (error) {
+      console.error('Error loading event participants count:', error);
+    }
+  };
 
   const loadEvents = async () => {
     try {
-      // Get events within the next 2 weeks
+      // Get events from today to 10 days ahead
       const now = new Date();
-      const bufferTime = new Date(now.getTime() + 60 * 60 * 1000); // 1 hour buffer for display
-      const twoWeeksFromNow = new Date(now.getTime() + (14 * 24 * 60 * 60 * 1000)); // 2 weeks from now
+      const tenDaysFromNow = new Date(now.getTime() + (10 * 24 * 60 * 60 * 1000)); // 10 days from now
       
       const eventsRef = collection(db, 'events');
       const q = query(eventsRef, orderBy('date', 'asc'));
@@ -41,17 +89,25 @@ const Home = () => {
         const data = doc.data();
         const eventDate = data.date instanceof Timestamp ? data.date.toDate() : new Date(data.date);
         
-        // Check if event is past (with buffer)
-        if (eventDate < bufferTime) {
+        // Calculate when this event should be archived (1 hour after event time)
+        const eventEndTime = new Date(eventDate.getTime() + 60 * 60 * 1000); // 1 hour after event
+        
+        // Check if event is past (more than 1 hour after event time)
+        if (now > eventEndTime) {
+          console.log(`Event "${data.title}" is past:`, {
+            eventTime: eventDate.toLocaleString(),
+            endTime: eventEndTime.toLocaleString(),
+            currentTime: now.toLocaleString(),
+            isPast: true
+          });
           pastEvents.push(doc.id);
-        } else if (eventDate <= twoWeeksFromNow) {
-          // Only include events within the next 2 weeks
-          // Debug: Log event data to check for corruption
-          console.log('Event data:', {
-            id: doc.id,
-            title: data.title,
-            description: data.description,
-            location: data.location
+        } else if (eventDate <= tenDaysFromNow) {
+          // Only include events within the next 10 days
+          console.log(`Event "${data.title}" is active:`, {
+            eventTime: eventDate.toLocaleString(),
+            endTime: eventEndTime.toLocaleString(),
+            currentTime: now.toLocaleString(),
+            isPast: false
           });
           
           eventsData.push({
@@ -76,6 +132,9 @@ const Home = () => {
       }
 
       setEvents(eventsData);
+
+      // Load participants count for all events
+      await loadEventParticipantsCount(eventsData.map(event => event.id));
 
       // Load user's attendances
       if (user) {
@@ -108,53 +167,305 @@ const Home = () => {
 
   const archivePastEvents = async (eventIds: string[]) => {
     try {
+      if (eventIds.length === 0) return;
+
+      // First, get all events to archive them
+      const eventsRef = collection(db, 'events');
+      const eventsSnapshot = await getDocs(eventsRef);
+      const eventsToArchive: any[] = [];
+      
+      eventsSnapshot.forEach((doc) => {
+        if (eventIds.includes(doc.id)) {
+          eventsToArchive.push({
+            id: doc.id,
+            data: doc.data()
+          });
+        }
+      });
+
+      // Get all attendances for these events
+      const attendancesRef = collection(db, 'attendances');
+      const attendanceSnapshot = await getDocs(attendancesRef);
+      const attendancesToArchive: any[] = [];
+      
+      // Group attendances by userId and eventId for stats update
+      const userAttendances = new Map<string, { eventId: string; attended: boolean; eventType: EventType }[]>();
+      
+      attendanceSnapshot.forEach((attendanceDoc) => {
+        const data = attendanceDoc.data();
+        if (eventIds.includes(data.eventId)) {
+          // Store for archiving
+          attendancesToArchive.push({
+            id: attendanceDoc.id,
+            data: data
+          });
+          
+          // Store for stats calculation
+          const userId = data.userId;
+          const event = eventsToArchive.find(e => e.id === data.eventId);
+          const eventType = event?.data.type;
+          
+          if (!userAttendances.has(userId)) {
+            userAttendances.set(userId, []);
+          }
+          
+          if (eventType) {
+            userAttendances.get(userId)!.push({
+              eventId: data.eventId,
+              attended: data.attending === true || data.status === 'attending',
+              eventType: eventType
+            });
+          }
+        }
+      });
+
+      // Update stats for each user
+      for (const [userId, attendances] of userAttendances) {
+        await updatePlayerStats(userId, attendances);
+      }
+
+      // Archive events and attendances, then delete originals
       const batch = writeBatch(db);
       
-      // Delete past events from events collection
+      // 1. Copy events to events_archive
+      eventsToArchive.forEach(event => {
+        const archiveRef = doc(db, 'events_archive', event.id);
+        batch.set(archiveRef, {
+          ...event.data,
+          archivedAt: serverTimestamp()
+        });
+      });
+      
+      // 2. Copy attendances to attendances_archive
+      attendancesToArchive.forEach(attendance => {
+        const archiveRef = doc(db, 'attendances_archive', attendance.id);
+        batch.set(archiveRef, {
+          ...attendance.data,
+          archivedAt: serverTimestamp()
+        });
+      });
+      
+      // 3. Delete original events
       eventIds.forEach(eventId => {
         const eventRef = doc(db, 'events', eventId);
         batch.delete(eventRef);
       });
       
-      // Also delete related attendances
-      const attendancesRef = collection(db, 'attendances');
-      const attendanceSnapshot = await getDocs(attendancesRef);
-      
-      attendanceSnapshot.forEach((attendanceDoc) => {
-        const data = attendanceDoc.data();
-        if (eventIds.includes(data.eventId)) {
-          batch.delete(attendanceDoc.ref);
-        }
+      // 4. Delete original attendances
+      attendancesToArchive.forEach(attendance => {
+        const attendanceRef = doc(db, 'attendances', attendance.id);
+        batch.delete(attendanceRef);
       });
       
       await batch.commit();
       
-      if (eventIds.length > 0) {
-        console.log(`Archived ${eventIds.length} past events`);
-      }
+      console.log(`✅ Archived ${eventIds.length} events and ${attendancesToArchive.length} attendances`);
     } catch (error) {
       console.error('Error archiving past events:', error);
     }
   };
 
-  const handleEventClick = (event: Event) => {
-    const existingAttendance = attendances[event.id];
+  const updatePlayerStats = async (
+    userId: string, 
+    attendances: { eventId: string; attended: boolean; eventType: EventType }[]
+  ) => {
+    try {
+      const statsRef = doc(db, 'stats', userId);
+      const statsDoc = await getDoc(statsRef);
+      
+      let matchesAttended = 0;
+      let trainingsAttended = 0;
+      
+      // Count new attendances
+      attendances.forEach(att => {
+        if (att.attended) {
+          if (att.eventType === 'MATCH') {
+            matchesAttended++;
+          } else if (att.eventType === 'TRAINING') {
+            trainingsAttended++;
+          }
+        }
+      });
+      
+      if (statsDoc.exists()) {
+        // Update existing stats
+        const currentData = statsDoc.data();
+        const newMatchesAttended = (currentData.matchesAttended || 0) + matchesAttended;
+        const newTrainingsAttended = (currentData.trainingsAttended || 0) + trainingsAttended;
+        
+        await setDoc(statsRef, {
+          matchesAttended: newMatchesAttended,
+          trainingsAttended: newTrainingsAttended,
+          totalAttended: newMatchesAttended + newTrainingsAttended,
+          lastUpdated: serverTimestamp()
+        }, { merge: true });
+      } else {
+        // Create new stats document
+        // Get user display name from users collection to ensure consistency
+        const usersRef = collection(db, 'users');
+        const userQuery = query(usersRef, where('email', '==', userId));
+        const userSnapshot = await getDocs(userQuery);
+        
+        let displayName = 'Unknown';
+        if (!userSnapshot.empty) {
+          const userData = userSnapshot.docs[0].data();
+          displayName = userData.alias || userData.email || 'Unknown';
+        }
+        
+        await setDoc(statsRef, {
+          userId,
+          displayName,
+          matchesAttended,
+          trainingsAttended,
+          totalAttended: matchesAttended + trainingsAttended,
+          goals: 0,
+          assists: 0,
+          lastUpdated: serverTimestamp()
+        });
+      }
+    } catch (error) {
+      console.error('Error updating player stats:', error);
+    }
+  };
+
+
+  const loadEventParticipants = async (eventId: string) => {
+    try {
+      // Fetch all users
+      const usersRef = collection(db, 'users');
+      const usersSnapshot = await getDocs(usersRef);
+      
+      // Fetch participants who have voted for this event
+      const attendancesRef = collection(db, 'attendances');
+      const participantsQuery = query(attendancesRef, where('eventId', '==', eventId));
+      const participantsSnapshot = await getDocs(participantsQuery);
+      
+      const participants: Attendance[] = [];
+      const votedUserEmails = new Set<string>();
+      
+      participantsSnapshot.forEach((doc) => {
+        const data = doc.data();
+        // Use email as the common identifier
+        const userEmail = data.userEmail || data.userId; // Fallback to userId if email not available
+        votedUserEmails.add(userEmail);
+        participants.push({
+          id: doc.id,
+          eventId: data.eventId,
+          userId: data.userId,
+          userDisplayName: data.userDisplayName,
+          attending: data.attending,
+          status: data.status || (data.attending ? 'attending' : 'not-attending'),
+          comment: data.comment,
+          createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate() : new Date(data.createdAt),
+          updatedAt: data.updatedAt instanceof Timestamp ? data.updatedAt.toDate() : new Date(data.updatedAt)
+        });
+      });
+      
+      // Find users who haven't voted yet
+      const usersWhoHaventVoted: Attendance[] = [];
+      usersSnapshot.forEach((userDoc) => {
+        const userData = userDoc.data();
+        const userEmail = userData.email;
+        if (!votedUserEmails.has(userEmail)) {
+          usersWhoHaventVoted.push({
+            id: `pending_${userDoc.id}_${eventId}`,
+            eventId: eventId,
+            userId: userDoc.id,
+            userDisplayName: userData.alias || 'Usuario sin nombre',
+            attending: false,
+            status: 'not-voted' as AttendanceStatus,
+            comment: '',
+            createdAt: new Date(),
+            updatedAt: new Date()
+          });
+        }
+      });
+      
+      // Group participants by status
+      const groupedParticipants = {
+        attending: participants.filter(p => {
+          const status = p.status || (p.attending ? 'attending' : 'not-attending');
+          return status === 'attending';
+        }).sort((a, b) => a.userDisplayName.localeCompare(b.userDisplayName)),
+        
+        pending: participants.filter(p => {
+          const status = p.status || (p.attending ? 'attending' : 'not-attending');
+          return status === 'pending';
+        }).sort((a, b) => a.userDisplayName.localeCompare(b.userDisplayName)),
+        
+        notAttending: participants.filter(p => {
+          const status = p.status || (p.attending ? 'attending' : 'not-attending');
+          return status === 'not-attending';
+        }).sort((a, b) => a.userDisplayName.localeCompare(b.userDisplayName)),
+        
+        notVoted: usersWhoHaventVoted.sort((a, b) => a.userDisplayName.localeCompare(b.userDisplayName))
+      };
+      
+      setEventParticipants(groupedParticipants);
+    } catch (error) {
+      console.error('Error loading event participants:', error);
+    }
+  };
+
+  const handleViewParticipants = async (event: Event) => {
+    await loadEventParticipants(event.id);
+    setShowParticipantsModal(true);
+  };
+
+  const handleEventClick = async (event: Event) => {
+    setLoadingModal(true);
     setSelectedEvent(event);
-    setAttending(existingAttendance?.attending || false);
-    setComment(existingAttendance?.comment || '');
+    
+    try {
+      const existingAttendance = attendances[event.id];
+      
+      // Load participants for this event to show vote count
+      await loadEventParticipants(event.id);
+      
+      if (existingAttendance) {
+        // Use new status field if available, otherwise fallback to old attending field
+        if (existingAttendance.status) {
+          setAttendanceStatus(existingAttendance.status);
+        } else {
+          setAttendanceStatus(existingAttendance.attending ? 'attending' : 'not-attending');
+        }
+      } else {
+        // No previous vote - default to pending
+        setAttendanceStatus('pending');
+      }
+      
+      setComment(existingAttendance?.comment || '');
+    } catch (error) {
+      console.error('Error loading event data:', error);
+    } finally {
+      setLoadingModal(false);
+    }
   };
 
   const handleSaveAttendance = async () => {
     if (!selectedEvent || !user) return;
 
+    setSavingAttendance(true);
     try {
       const { doc: firestoreDoc, setDoc, serverTimestamp } = await import('firebase/firestore');
       
+      // Get user's alias from users collection to ensure consistency
+      const usersRef = collection(db, 'users');
+      const userQuery = query(usersRef, where('email', '==', user.id));
+      const userSnapshot = await getDocs(userQuery);
+      
+      let displayName = user.displayName;
+      if (!userSnapshot.empty) {
+        const userData = userSnapshot.docs[0].data();
+        displayName = userData.alias || user.displayName;
+      }
+
       const attendanceData = {
         eventId: selectedEvent.id,
         userId: user.id,
-        userDisplayName: user.displayName,
-        attending,
+        userDisplayName: displayName,
+        attending: attendanceStatus === 'attending',
+        status: attendanceStatus, // Save the actual status including 'pending'
         comment: comment.trim(),
         updatedAt: serverTimestamp()
       };
@@ -172,12 +483,14 @@ const Home = () => {
         await setDoc(firestoreDoc(db, 'attendances', attendanceId), attendanceData, { merge: true });
       }
 
-      // Reload events
+      // Reload events and participants count
       await loadEvents();
       setSelectedEvent(null);
     } catch (error) {
       console.error('Error saving attendance:', error);
       alert('Error al guardar la asistencia');
+    } finally {
+      setSavingAttendance(false);
     }
   };
 
@@ -190,6 +503,22 @@ const Home = () => {
       hour: '2-digit',
       minute: '2-digit'
     });
+  };
+
+  const getDaysUntilEvent = (eventDate: Date): number => {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const eventDay = new Date(eventDate.getFullYear(), eventDate.getMonth(), eventDate.getDate());
+    const diffTime = eventDay.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays;
+  };
+
+  const formatDaysUntil = (days: number): string => {
+    if (days === 0) return 'Hoy';
+    if (days === 1) return 'Mañana';
+    if (days < 0) return 'Pasado';
+    return `En ${days} días`;
   };
 
   const copyLocation = async (location: string) => {
@@ -266,11 +595,17 @@ const Home = () => {
             const userAttendance = attendances[event.id];
             const isRegistered = !!userAttendance;
             const isAttending = userAttendance?.attending;
+            const daysUntil = getDaysUntilEvent(event.date);
 
             return (
               <div key={event.id} className="event-card">
-                <div className="event-type">
-                  {event.type === 'TRAINING' ? '⚽ Entrenamiento' : '🏆 Partido'}
+                <div className="event-header">
+                  <div className="event-type">
+                    {event.type === 'MATCH' ? '⚽ Partido' : '🏃 Entrenamiento'}
+                  </div>
+                  <div className="event-countdown">
+                    {formatDaysUntil(daysUntil)}
+                  </div>
                 </div>
                 <h3>{event.title}</h3>
                 <p className="event-date">{formatDate(event.date)}</p>
@@ -308,20 +643,40 @@ const Home = () => {
                   <p className="event-description">{event.description}</p>
                 )}
                 
-                <div className="event-status">
-                  {isRegistered && (
-                    <span className={`status-badge ${isAttending ? 'attending' : 'not-attending'}`}>
-                      {isAttending ? '✓ Confirmado' : '✗ No asisto'}
+                <div className="event-status-row">
+                  <div className="event-status">
+                    {isRegistered ? (
+                      <span className={`status-badge ${isAttending ? 'attending' : 'not-attending'}`}>
+                        {isAttending ? '✓ Confirmado' : '✗ No asisto'}
+                      </span>
+                    ) : (
+                      <span className="status-badge pending">
+                        ⏳ Pendiente
+                      </span>
+                    )}
+                  </div>
+                  <div className="event-votes-counter">
+                    <span className="votes-text">
+                      {eventParticipantsCount[event.id] || 0} / {totalUsers} personas votaron
+                      {(eventParticipantsCount[event.id] || 0) === totalUsers && totalUsers > 0 && ' 🎉'}
                     </span>
-                  )}
+                  </div>
                 </div>
 
-                <button 
-                  onClick={() => handleEventClick(event)}
-                  className="btn-primary"
-                >
-                  {isRegistered ? 'Editar Participación' : 'Anotarse'}
-                </button>
+                <div className="event-actions">
+                  <button 
+                    onClick={() => handleEventClick(event)}
+                    className="btn-primary"
+                  >
+                    {isRegistered ? 'Editar Participación' : 'Anotarse'}
+                  </button>
+                  <button 
+                    onClick={() => handleViewParticipants(event)}
+                    className="btn-secondary"
+                  >
+                    Ver Participantes
+                  </button>
+                </div>
               </div>
             );
           })}
@@ -330,10 +685,19 @@ const Home = () => {
 
       {selectedEvent && (
         <Modal 
-          onClose={() => setSelectedEvent(null)} 
+          onClose={() => {
+            setSelectedEvent(null);
+            setLoadingModal(false);
+          }} 
           title={`${selectedEvent.title}`}
         >
-          <div className="attendance-form">
+          {loadingModal ? (
+            <div className="modal-loader">
+              <div className="loader-spinner"></div>
+              <p>Cargando datos del evento...</p>
+            </div>
+          ) : (
+            <div className="attendance-form">
             <div className="form-group">
               <label>Participante:</label>
               <input 
@@ -348,16 +712,26 @@ const Home = () => {
               <label>¿Vas a asistir?</label>
               <div className="toggle-container">
                 <button
-                  className={`toggle-btn ${!attending ? 'active' : ''}`}
-                  onClick={() => setAttending(false)}
+                  className={`toggle-btn ${attendanceStatus === 'not-attending' ? 'active' : ''}`}
+                  onClick={() => setAttendanceStatus('not-attending')}
+                  disabled={savingAttendance}
                 >
-                  No
+                  No asisto
                 </button>
                 <button
-                  className={`toggle-btn ${attending ? 'active' : ''}`}
-                  onClick={() => setAttending(true)}
+                  className={`toggle-btn ${attendanceStatus === 'pending' ? 'active' : ''}`}
+                  onClick={() => setAttendanceStatus('pending')}
+                  disabled={savingAttendance}
+                  data-status="pending"
                 >
-                  Sí
+                  Pendiente
+                </button>
+                <button
+                  className={`toggle-btn ${attendanceStatus === 'attending' ? 'active' : ''}`}
+                  onClick={() => setAttendanceStatus('attending')}
+                  disabled={savingAttendance}
+                >
+                  Sí asisto
                 </button>
               </div>
             </div>
@@ -370,18 +744,211 @@ const Home = () => {
                 placeholder="Dejá un comentario..."
                 maxLength={50}
                 rows={3}
+                disabled={savingAttendance}
               />
               <span className="char-count">{comment.length}/50</span>
             </div>
 
             <div className="modal-actions">
-              <button onClick={() => setSelectedEvent(null)} className="btn-secondary">
+              <button 
+                onClick={() => setSelectedEvent(null)} 
+                className="btn-secondary"
+                disabled={savingAttendance}
+              >
                 Cancelar
               </button>
-              <button onClick={handleSaveAttendance} className="btn-primary">
-                Guardar
+              <button 
+                onClick={handleSaveAttendance} 
+                className="btn-primary"
+                disabled={savingAttendance}
+              >
+                {savingAttendance ? 'Guardando...' : 'Guardar'}
               </button>
             </div>
+          </div>
+          )}
+        </Modal>
+      )}
+
+      {showParticipantsModal && (
+        <Modal 
+          onClose={() => setShowParticipantsModal(false)} 
+          title="Participantes del Evento"
+        >
+          <div className="participants-container">
+            {eventParticipants.attending.length === 0 && eventParticipants.pending.length === 0 && eventParticipants.notAttending.length === 0 && eventParticipants.notVoted.length === 0 ? (
+              <p className="no-participants">No hay participantes registrados aún</p>
+            ) : (
+              <div className="participants-list">
+                {/* Grupo: Asisten */}
+                {eventParticipants.attending.length > 0 && (
+                  <div className="participant-group">
+                    <h3 className="group-title attending">✓ Asisten ({eventParticipants.attending.length})</h3>
+                    {eventParticipants.attending.map((participant) => (
+                      <div key={participant.id} className="participant-item">
+                        <div className="participant-info">
+                          <div className="participant-name">
+                            {participant.userDisplayName}
+                          </div>
+                        </div>
+                        <div className="participant-comment">
+                          <span 
+                            className={`comment-icon ${participant.comment ? 'has-comment' : 'no-comment'}`}
+                            data-tooltip-id={`comment-tooltip-${participant.id}`}
+                            data-tooltip-content={participant.comment || 'Sin comentario'}
+                          >
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                            </svg>
+                          </span>
+                          <Tooltip 
+                            id={`comment-tooltip-${participant.id}`}
+                            place="top"
+                            style={{
+                              backgroundColor: 'rgba(0, 0, 0, 0.9)',
+                              color: 'white',
+                              fontSize: '12px',
+                              fontFamily: 'var(--font-body)',
+                              fontWeight: '500',
+                              borderRadius: '6px',
+                              padding: '8px 12px',
+                              maxWidth: '250px',
+                              wordWrap: 'break-word'
+                            }}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Grupo: Pendientes */}
+                {eventParticipants.pending.length > 0 && (
+                  <div className="participant-group">
+                    <h3 className="group-title pending">⏳ Pendientes ({eventParticipants.pending.length})</h3>
+                    {eventParticipants.pending.map((participant) => (
+                      <div key={participant.id} className="participant-item">
+                        <div className="participant-info">
+                          <div className="participant-name">
+                            {participant.userDisplayName}
+                          </div>
+                        </div>
+                        <div className="participant-comment">
+                          <span 
+                            className={`comment-icon ${participant.comment ? 'has-comment' : 'no-comment'}`}
+                            data-tooltip-id={`comment-tooltip-${participant.id}`}
+                            data-tooltip-content={participant.comment || 'Sin comentario'}
+                          >
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                            </svg>
+                          </span>
+                          <Tooltip 
+                            id={`comment-tooltip-${participant.id}`}
+                            place="top"
+                            style={{
+                              backgroundColor: 'rgba(0, 0, 0, 0.9)',
+                              color: 'white',
+                              fontSize: '12px',
+                              fontFamily: 'var(--font-body)',
+                              fontWeight: '500',
+                              borderRadius: '6px',
+                              padding: '8px 12px',
+                              maxWidth: '250px',
+                              wordWrap: 'break-word'
+                            }}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Grupo: No asisten */}
+                {eventParticipants.notAttending.length > 0 && (
+                  <div className="participant-group">
+                    <h3 className="group-title not-attending">✗ No asisten ({eventParticipants.notAttending.length})</h3>
+                    {eventParticipants.notAttending.map((participant) => (
+                      <div key={participant.id} className="participant-item">
+                        <div className="participant-info">
+                          <div className="participant-name">
+                            {participant.userDisplayName}
+                          </div>
+                        </div>
+                        <div className="participant-comment">
+                          <span 
+                            className={`comment-icon ${participant.comment ? 'has-comment' : 'no-comment'}`}
+                            data-tooltip-id={`comment-tooltip-${participant.id}`}
+                            data-tooltip-content={participant.comment || 'Sin comentario'}
+                          >
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                            </svg>
+                          </span>
+                          <Tooltip 
+                            id={`comment-tooltip-${participant.id}`}
+                            place="top"
+                            style={{
+                              backgroundColor: 'rgba(0, 0, 0, 0.9)',
+                              color: 'white',
+                              fontSize: '12px',
+                              fontFamily: 'var(--font-body)',
+                              fontWeight: '500',
+                              borderRadius: '6px',
+                              padding: '8px 12px',
+                              maxWidth: '250px',
+                              wordWrap: 'break-word'
+                            }}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Grupo: No han votado */}
+                {eventParticipants.notVoted.length > 0 && (
+                  <div className="participant-group">
+                    <h3 className="group-title not-voted">⚠️ No han votado ({eventParticipants.notVoted.length})</h3>
+                    {eventParticipants.notVoted.map((participant) => (
+                      <div key={participant.id} className="participant-item">
+                        <div className="participant-info">
+                          <div className="participant-name">
+                            {participant.userDisplayName}
+                          </div>
+                        </div>
+                        <div className="participant-comment">
+                          <span 
+                            className="comment-icon no-comment"
+                            data-tooltip-id={`comment-tooltip-${participant.id}`}
+                            data-tooltip-content="Aún no ha votado"
+                          >
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                            </svg>
+                          </span>
+                          <Tooltip 
+                            id={`comment-tooltip-${participant.id}`}
+                            place="top"
+                            style={{
+                              backgroundColor: 'rgba(0, 0, 0, 0.9)',
+                              color: 'white',
+                              fontSize: '12px',
+                              fontFamily: 'var(--font-body)',
+                              fontWeight: '500',
+                              borderRadius: '6px',
+                              padding: '8px 12px',
+                              maxWidth: '250px',
+                              wordWrap: 'break-word'
+                            }}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </Modal>
       )}
