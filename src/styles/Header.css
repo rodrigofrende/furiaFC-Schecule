@@ -131,23 +131,180 @@
   border: 1px solid var(--color-furia-blue) !important;
 }
 
+/* Modal form styles for profile edit */
 .modal-form {
   display: flex;
   flex-direction: column;
-  gap: 15px;
+  gap: var(--space-lg);
 }
 
-.modal-actions {
+.modal-form label {
   display: flex;
-  gap: 10px;
+  flex-direction: column;
+  gap: var(--space-sm);
+  font-weight: var(--weight-bold);
+  color: var(--color-furia-black);
+  font-size: var(--text-base);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-family: var(--font-heading);
+}
+
+.modal-form input[type="text"],
+.modal-form input[type="date"] {
+  padding: 14px 16px;
+  border: 2px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 16px;
+  font-family: var(--font-body);
+  font-weight: 500;
+  color: var(--color-furia-black);
+  background-color: #f9fafb;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  cursor: text;
+}
+
+.modal-form input[type="text"]:hover,
+.modal-form input[type="date"]:hover {
+  border-color: #9ca3af;
+  background-color: #ffffff;
+}
+
+.modal-form input[type="text"]:focus,
+.modal-form input[type="date"]:focus {
+  outline: none;
+  border-color: var(--color-furia-blue);
+  background-color: #ffffff;
+  box-shadow: 0 0 0 4px rgba(30, 64, 175, 0.15), 0 1px 3px rgba(0, 0, 0, 0.1);
+  transform: translateY(-1px);
+}
+
+.modal-form input[type="text"]::placeholder {
+  color: #9ca3af;
+  font-weight: 400;
+}
+
+.modal-form input[type="date"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  filter: brightness(0) saturate(100%) invert(29%) sepia(88%) saturate(1234%) hue-rotate(205deg) brightness(90%) contrast(90%);
+  width: 20px;
+  height: 20px;
+}
+
+.modal-form input[type="date"]:hover::-webkit-calendar-picker-indicator {
+  filter: brightness(0) saturate(100%) invert(29%) sepia(88%) saturate(1234%) hue-rotate(205deg) brightness(70%) contrast(90%);
+}
+
+.modal-form input[type="text"]:disabled,
+.modal-form input[type="date"]:disabled {
+  background-color: #e5e7eb;
+  cursor: not-allowed;
+  opacity: 0.7;
+  border-color: #d1d5db;
+}
+
+.info-hint {
+  font-size: 14px;
+  color: #4b5563;
+  margin: 0;
+  padding: 12px 16px;
+  background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+  border-left: 4px solid var(--color-furia-blue);
+  border-radius: 8px;
+  font-weight: 500;
+  line-height: 1.5;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+/* Modal actions buttons */
+.modal-form .modal-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: var(--space-md);
   justify-content: flex-end;
-  margin-top: 10px;
+}
+
+.modal-form .modal-actions button {
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  font-family: var(--font-heading);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: none;
+  min-width: 120px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.modal-form .modal-actions .btn-secondary {
+  background-color: #6b7280;
+  color: white;
+}
+
+.modal-form .modal-actions .btn-secondary:hover:not(:disabled) {
+  background-color: #4b5563;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.modal-form .modal-actions .btn-primary {
+  background: linear-gradient(135deg, var(--color-furia-blue) 0%, #1e3a8a 100%);
+  color: white;
+}
+
+.modal-form .modal-actions .btn-primary:hover:not(:disabled) {
+  background: linear-gradient(135deg, #1e3a8a 0%, var(--color-furia-blue) 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(30, 64, 175, 0.3);
+}
+
+.modal-form .modal-actions button:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.modal-form .modal-actions button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  box-shadow: none;
 }
 
 /* Mobile First - Base styles are already mobile optimized */
 
-/* Small mobile devices (320px - 480px) */
+/* Responsive adjustments for modal form */
 @media (max-width: 480px) {
+  .modal-form {
+    gap: var(--space-md);
+  }
+
+  .modal-form label {
+    font-size: 14px;
+  }
+
+  .modal-form input[type="text"],
+  .modal-form input[type="date"] {
+    padding: 12px 14px;
+    font-size: 15px;
+  }
+
+  .modal-form .modal-actions {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .modal-form .modal-actions button {
+    width: 100%;
+    min-width: auto;
+  }
+
+  .info-hint {
+    font-size: 13px;
+    padding: 10px 12px;
+  }
+
   .header-content {
     padding: var(--space-xs) var(--space-sm);
     min-height: 50px;

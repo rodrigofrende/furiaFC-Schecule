@@ -3,28 +3,69 @@ import { useAuth } from '../context/AuthContext';
 import Modal from './Modal';
 import { Tooltip } from 'react-tooltip';
 import furiaLogo from '../assets/logo furia.png';
+import { collection, query, where, getDocs } from 'firebase/firestore';
+import { db } from '../config/firebase';
+import { type PlayerPosition } from '../types';
 import '../styles/Header.css';
 
 const Header = () => {
-  const { user, signOut, updateDisplayName } = useAuth();
+  const { user, signOut, updateDisplayName, updateBirthday, updatePosition } = useAuth();
   const [showEditModal, setShowEditModal] = useState(false);
   const [newName, setNewName] = useState('');
+  const [newBirthday, setNewBirthday] = useState('');
+  const [newPosition, setNewPosition] = useState<PlayerPosition | ''>('');
   const [saving, setSaving] = useState(false);
 
-  const handleEditName = () => {
+  const handleEditName = async () => {
     setNewName(user?.displayName || '');
+    
+    // Cargar el cumpleaños y posición actuales del usuario desde Firestore
+    if (user?.email) {
+      try {
+        const usersRef = collection(db, 'users');
+        const userQuery = query(usersRef, where('email', '==', user.email));
+        const userSnapshot = await getDocs(userQuery);
+        
+        if (!userSnapshot.empty) {
+          const userData = userSnapshot.docs[0].data();
+          setNewBirthday(userData.birthday || '');
+          setNewPosition(userData.position || '');
+        }
+      } catch (error) {
+        console.error('Error al cargar los datos del usuario:', error);
+      }
+    }
+    
     setShowEditModal(true);
   };
 
-  const handleSaveName = async () => {
-    if (newName.trim() && !saving) {
+  const handleSaveProfile = async () => {
+    if (!newName.trim()) {
+      alert('⚠️ El nombre no puede estar vacío');
+      return;
+    }
+
+    if (!saving) {
       setSaving(true);
       try {
+        // Actualizar el nombre
         await updateDisplayName(newName.trim());
+        
+        // Actualizar el cumpleaños si se proporcionó
+        if (newBirthday) {
+          await updateBirthday(newBirthday);
+        }
+        
+        // Actualizar la posición solo si es PLAYER
+        if (user?.role === 'PLAYER') {
+          await updatePosition(newPosition);
+        }
+        
+        alert('✅ Perfil actualizado correctamente');
         setShowEditModal(false);
       } catch (error) {
         console.error('Error al guardar:', error);
-        alert('Error al guardar el nombre. Intentá de nuevo.');
+        alert('❌ Error al guardar los datos. Intentá de nuevo.');
       } finally {
         setSaving(false);
       }
@@ -87,18 +128,51 @@ const Header = () => {
       />
 
       {showEditModal && (
-        <Modal onClose={() => setShowEditModal(false)} title="Editar Nombre">
+        <Modal onClose={() => setShowEditModal(false)} title="Editar Perfil">
           <div className="modal-form">
             <label>
-              Nuevo nombre:
+              Nombre:
               <input
                 type="text"
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
                 placeholder="Ingresá tu nombre"
                 maxLength={30}
+                disabled={saving}
               />
             </label>
+            
+            <label>
+              Fecha de cumpleaños (opcional):
+              <input
+                type="date"
+                value={newBirthday}
+                onChange={(e) => setNewBirthday(e.target.value)}
+                disabled={saving}
+              />
+            </label>
+            
+            {user?.role === 'PLAYER' && (
+              <label>
+                Posición (opcional):
+                <select
+                  value={newPosition}
+                  onChange={(e) => setNewPosition(e.target.value as PlayerPosition | '')}
+                  disabled={saving}
+                >
+                  <option value="">Seleccioná una posición</option>
+                  <option value="Arquera">Arquera</option>
+                  <option value="Defensora">Defensora</option>
+                  <option value="Mediocampista">Mediocampista</option>
+                  <option value="Delantera">Delantera</option>
+                </select>
+              </label>
+            )}
+            
+            <p className="info-hint">
+              💡 Si agregás tu cumpleaños, se creará automáticamente un evento recordatorio cada año.
+            </p>
+            
             <div className="modal-actions">
               <button 
                 onClick={() => setShowEditModal(false)} 
@@ -108,7 +182,7 @@ const Header = () => {
                 Cancelar
               </button>
               <button 
-                onClick={handleSaveName} 
+                onClick={handleSaveProfile} 
                 className="btn-primary"
                 disabled={saving || !newName.trim()}
               >

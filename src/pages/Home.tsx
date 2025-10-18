@@ -27,6 +27,8 @@ const Home = () => {
   }>({ attending: [], pending: [], notAttending: [], notVoted: [] });
   const [totalUsers, setTotalUsers] = useState(0);
   const [eventParticipantsCount, setEventParticipantsCount] = useState<Record<string, number>>({});
+  const [showCreateEventModal, setShowCreateEventModal] = useState(false);
+  const [editingEvent, setEditingEvent] = useState<Event | null>(null);
 
   // Auto-cleanup hook
 
@@ -276,7 +278,7 @@ const Home = () => {
       let matchesAttended = 0;
       let trainingsAttended = 0;
       
-      // Count new attendances
+      // Count new attendances (solo MATCH y TRAINING, excluye BIRTHDAY y CUSTOM)
       attendances.forEach(att => {
         if (att.attended) {
           if (att.eventType === 'MATCH') {
@@ -284,6 +286,7 @@ const Home = () => {
           } else if (att.eventType === 'TRAINING') {
             trainingsAttended++;
           }
+          // BIRTHDAY y CUSTOM no cuentan para estadísticas
         }
       });
       
@@ -494,7 +497,17 @@ const Home = () => {
     }
   };
 
-  const formatDate = (date: Date) => {
+  const formatDate = (date: Date, eventType?: string) => {
+    // Los cumpleaños son eventos de todo el día, no muestran hora
+    if (eventType === 'BIRTHDAY') {
+      return date.toLocaleDateString('es-AR', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+    }
+    
     return date.toLocaleDateString('es-AR', {
       weekday: 'long',
       year: 'numeric',
@@ -577,6 +590,41 @@ const Home = () => {
     }, 3000);
   };
 
+  const handleEditEvent = (event: Event) => {
+    setEditingEvent(event);
+    setShowCreateEventModal(true);
+  };
+
+  const handleDeleteEvent = async (eventId: string) => {
+    if (!window.confirm('¿Estás seguro de que quieres eliminar este evento? Esta acción no se puede deshacer.')) {
+      return;
+    }
+
+    try {
+      const { deleteDoc, doc: firestoreDoc } = await import('firebase/firestore');
+      
+      // Delete the event
+      await deleteDoc(firestoreDoc(db, 'events', eventId));
+      
+      // Delete all attendances related to this event
+      const attendancesRef = collection(db, 'attendances');
+      const attendancesQuery = query(attendancesRef, where('eventId', '==', eventId));
+      const attendancesSnapshot = await getDocs(attendancesQuery);
+      
+      const batch = writeBatch(db);
+      attendancesSnapshot.forEach((attendanceDoc) => {
+        batch.delete(firestoreDoc(db, 'attendances', attendanceDoc.id));
+      });
+      await batch.commit();
+      
+      showToast('✓ Evento eliminado exitosamente', 'success');
+      await loadEvents();
+    } catch (error) {
+      console.error('Error deleting event:', error);
+      showToast('✗ Error al eliminar el evento', 'error');
+    }
+  };
+
   if (loading) {
     return <div className="loading">Cargando eventos...</div>;
   }
@@ -585,7 +633,19 @@ const Home = () => {
     <div className="home-container">
       <h1>Próximos Eventos</h1>
       
-      <CreateEvent onEventCreated={loadEvents} />
+      <CreateEvent 
+        onEventCreated={() => {
+          loadEvents();
+          setShowCreateEventModal(false);
+          setEditingEvent(null);
+        }} 
+        editingEvent={editingEvent}
+        isOpen={showCreateEventModal}
+        onClose={() => {
+          setShowCreateEventModal(false);
+          setEditingEvent(null);
+        }}
+      />
 
       {events.length === 0 ? (
         <p className="no-events">No hay eventos próximos</p>
@@ -601,14 +661,17 @@ const Home = () => {
               <div key={event.id} className="event-card">
                 <div className="event-header">
                   <div className="event-type">
-                    {event.type === 'MATCH' ? '⚽ Partido' : '🏃 Entrenamiento'}
+                    {event.type === 'MATCH' ? '⚽ Partido' 
+                      : event.type === 'TRAINING' ? '🏃 Entrenamiento'
+                      : event.type === 'BIRTHDAY' ? '🎂 Cumpleaños'
+                      : '⭐ Personalizado'}
                   </div>
                   <div className="event-countdown">
                     {formatDaysUntil(daysUntil)}
                   </div>
                 </div>
                 <h3>{event.title}</h3>
-                <p className="event-date">{formatDate(event.date)}</p>
+                <p className="event-date">{formatDate(event.date, event.type)}</p>
                 <div className="event-location">
                   <section className="location-container">
                     <p className="location-label">📍</p>
@@ -643,40 +706,129 @@ const Home = () => {
                   <p className="event-description">{event.description}</p>
                 )}
                 
-                <div className="event-status-row">
-                  <div className="event-status">
-                    {isRegistered ? (
-                      <span className={`status-badge ${isAttending ? 'attending' : 'not-attending'}`}>
-                        {isAttending ? '✓ Confirmado' : '✗ No asisto'}
-                      </span>
-                    ) : (
-                      <span className="status-badge pending">
-                        ⏳ Pendiente
-                      </span>
+                {event.type === 'BIRTHDAY' ? (
+                  // Birthday events: Solo informativo, sin participación
+                  <>
+                    <div className="event-info-banner">
+                      <span className="info-icon">📅</span>
+                      <span className="info-text">Evento de recordatorio - No requiere confirmación</span>
+                    </div>
+                    
+                    {user?.role === 'ADMIN' && (
+                      <>
+                        <div className="admin-event-actions-mobile admin-birthday-mobile">
+                          <button 
+                            onClick={() => handleEditEvent(event)}
+                            className="btn-admin-edit-mobile"
+                            title="Editar evento"
+                          >
+                            ✏️ Editar
+                          </button>
+                          <button 
+                            onClick={() => handleDeleteEvent(event.id)}
+                            className="btn-admin-delete-mobile"
+                            title="Eliminar evento"
+                          >
+                            🗑️ Eliminar
+                          </button>
+                        </div>
+                        
+                        <div className="admin-event-actions-desktop">
+                          <button 
+                            onClick={() => handleEditEvent(event)}
+                            className="btn-admin-edit"
+                            title="Editar evento"
+                          >
+                            ✏️
+                          </button>
+                          <button 
+                            onClick={() => handleDeleteEvent(event.id)}
+                            className="btn-admin-delete"
+                            title="Eliminar evento"
+                          >
+                            🗑️
+                          </button>
+                        </div>
+                      </>
                     )}
-                  </div>
-                  <div className="event-votes-counter">
-                    <span className="votes-text">
-                      {eventParticipantsCount[event.id] || 0} / {totalUsers} personas votaron
-                      {(eventParticipantsCount[event.id] || 0) === totalUsers && totalUsers > 0 && ' 🎉'}
-                    </span>
-                  </div>
-                </div>
+                  </>
+                ) : (
+                  // Other events: Con participación normal
+                  <>
+                    <div className="event-status-row">
+                      <div className="event-status">
+                        {isRegistered ? (
+                          <span className={`status-badge ${isAttending ? 'attending' : 'not-attending'}`}>
+                            {isAttending ? '✓ Confirmado' : '✗ No asisto'}
+                          </span>
+                        ) : (
+                          <span className="status-badge pending">
+                            ⏳ Pendiente
+                          </span>
+                        )}
+                      </div>
+                      <div className="event-votes-counter">
+                        <span className="votes-text">
+                          {eventParticipantsCount[event.id] || 0} / {totalUsers} personas votaron
+                          {(eventParticipantsCount[event.id] || 0) === totalUsers && totalUsers > 0 && ' 🎉'}
+                        </span>
+                      </div>
+                    </div>
 
-                <div className="event-actions">
-                  <button 
-                    onClick={() => handleEventClick(event)}
-                    className="btn-primary"
-                  >
-                    {isRegistered ? 'Editar Participación' : 'Anotarse'}
-                  </button>
-                  <button 
-                    onClick={() => handleViewParticipants(event)}
-                    className="btn-secondary"
-                  >
-                    Ver Participantes
-                  </button>
-                </div>
+                    <div className="event-actions">
+                      <button 
+                        onClick={() => handleEventClick(event)}
+                        className="btn-primary"
+                      >
+                        {isRegistered ? 'Editar Participación' : 'Anotarse'}
+                      </button>
+                      <button 
+                        onClick={() => handleViewParticipants(event)}
+                        className="btn-secondary"
+                      >
+                        Ver Participantes
+                      </button>
+                      
+                      {user?.role === 'ADMIN' && (
+                        <div className="admin-event-actions-mobile">
+                          <button 
+                            onClick={() => handleEditEvent(event)}
+                            className="btn-admin-edit-mobile"
+                            title="Editar evento"
+                          >
+                            ✏️ Editar
+                          </button>
+                          <button 
+                            onClick={() => handleDeleteEvent(event.id)}
+                            className="btn-admin-delete-mobile"
+                            title="Eliminar evento"
+                          >
+                            🗑️ Eliminar
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                    
+                    {user?.role === 'ADMIN' && (
+                      <div className="admin-event-actions-desktop">
+                        <button 
+                          onClick={() => handleEditEvent(event)}
+                          className="btn-admin-edit"
+                          title="Editar evento"
+                        >
+                          ✏️
+                        </button>
+                        <button 
+                          onClick={() => handleDeleteEvent(event.id)}
+                          className="btn-admin-delete"
+                          title="Eliminar evento"
+                        >
+                          🗑️
+                        </button>
+                      </div>
+                    )}
+                  </>
+                )}
               </div>
             );
           })}
@@ -690,6 +842,7 @@ const Home = () => {
             setLoadingModal(false);
           }} 
           title={`${selectedEvent.title}`}
+          onSubmit={handleSaveAttendance}
         >
           {loadingModal ? (
             <div className="modal-loader">

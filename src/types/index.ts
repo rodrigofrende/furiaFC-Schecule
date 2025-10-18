@@ -1,10 +1,14 @@
 export type UserRole = 'ADMIN' | 'PLAYER';
 
+export type PlayerPosition = 'Arquera' | 'Defensora' | 'Mediocampista' | 'Delantera';
+
 export interface User {
   id: string;
   email: string;
   displayName: string;
   role: UserRole;
+  birthday?: string; // Formato: YYYY-MM-DD
+  position?: PlayerPosition; // Solo para PLAYER
 }
 
 export interface AllowedUser {
@@ -12,7 +16,7 @@ export interface AllowedUser {
   role: UserRole;
 }
 
-export type EventType = 'TRAINING' | 'MATCH';
+export type EventType = 'TRAINING' | 'MATCH' | 'BIRTHDAY' | 'CUSTOM';
 
 export interface Event {
   id: string;
@@ -24,7 +28,7 @@ export interface Event {
   createdBy: string;
   createdAt: Date;
   isRecurring?: boolean;
-  recurringType?: 'weekly' | 'monthly';
+  recurringType?: 'weekly' | 'monthly' | 'yearly';
   originalEventId?: string | null;
 }
 

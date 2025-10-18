@@ -1,6 +1,8 @@
 .create-event-btn {
   margin-bottom: 20px;
   font-size: 16px;
+  position: relative;
+  z-index: 100;
 }
 
 .event-form {
@@ -29,6 +31,20 @@
   gap: 10px;
 }
 
+/* Grid para tipos de evento - Mobile first */
+.event-form .toggle-container.event-type-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+
+/* Tablet en adelante: 2 columnas */
+@media (min-width: 480px) {
+  .event-form .toggle-container.event-type-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
 .event-form .toggle-btn {
   flex: 1;
   padding: 12px;
@@ -36,7 +52,7 @@
   background-color: var(--color-white);
   border-radius: var(--radius-md);
   cursor: pointer;
-  font-size: 16px;
+  font-size: 14px;
   font-weight: var(--weight-semibold);
   font-family: var(--font-heading);
   transition: all var(--transition-base);
@@ -45,6 +61,23 @@
   display: flex;
   justify-content: center;
   align-items: center;
+  min-height: 44px;
+  white-space: nowrap;
+}
+
+/* Botones más grandes en pantallas más anchas */
+@media (min-width: 480px) {
+  .event-form .toggle-btn {
+    font-size: 15px;
+    padding: 14px 12px;
+  }
+}
+
+@media (min-width: 640px) {
+  .event-form .toggle-btn {
+    font-size: 16px;
+    padding: 14px 16px;
+  }
 }
 
 .event-form .toggle-btn:hover {

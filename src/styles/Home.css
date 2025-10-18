@@ -579,6 +579,22 @@
   align-items: center !important;
 }
 
+/* Modal actions responsive */
+@media (max-width: 480px) {
+  .modal-actions {
+    flex-direction: column-reverse;
+    gap: 10px;
+    margin-top: 16px;
+  }
+  
+  .modal-actions button {
+    width: 100%;
+    padding: 12px;
+    font-size: 15px;
+    min-height: 44px;
+  }
+}
+
 /* Modal Loader */
 .modal-loader {
   display: flex;
@@ -708,7 +724,7 @@
   }
   
   .event-status-row {
-    flex-direction: column;
+    flex-direction: row;
     gap: 8px;
     align-items: flex-start;
   }
@@ -754,6 +770,203 @@
   .event-votes-counter .votes-text {
     font-size: 0.8rem;
     padding: 4px 8px;
+  }
+}
+
+/* Admin Event Actions - Desktop (Hover Effect) */
+.admin-event-actions-desktop {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  gap: 12px;
+  z-index: 10;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+
+.event-card:hover .admin-event-actions-desktop {
+  opacity: 1;
+  pointer-events: all;
+}
+
+.btn-admin-edit,
+.btn-admin-delete {
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.3rem;
+  border-radius: 50%;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  backdrop-filter: blur(10px);
+}
+
+.btn-admin-edit {
+  background: rgba(102, 126, 234, 0.95);
+  color: white;
+}
+
+.btn-admin-edit:hover {
+  transform: scale(1.1) rotate(-10deg);
+  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+}
+
+.btn-admin-delete {
+  background: rgba(245, 87, 108, 0.95);
+  color: white;
+}
+
+.btn-admin-delete:hover {
+  transform: scale(1.1) rotate(10deg);
+  box-shadow: 0 6px 20px rgba(245, 87, 108, 0.4);
+}
+
+/* Overlay effect when hovering */
+.event-card:hover::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.03);
+  border-radius: 12px;
+  pointer-events: none;
+  z-index: 5;
+}
+
+/* Admin Event Actions - Mobile (Below action buttons) */
+.admin-event-actions-mobile {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  /* Ocultar versión desktop en mobile */
+  .admin-event-actions-desktop {
+    display: none;
+  }
+  
+  .event-card:hover::before {
+    display: none;
+  }
+  
+  /* Mostrar versión mobile */
+  .admin-event-actions-mobile {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+    width: 100%;
+  }
+  
+  /* Para cumpleaños (sin otros botones), dar más espacio superior */
+  .admin-birthday-mobile {
+    margin-top: 16px;
+  }
+  
+  .btn-admin-edit-mobile,
+  .btn-admin-delete-mobile {
+    flex: 1;
+    padding: 10px 12px;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    font-family: var(--font-body);
+  }
+  
+  .btn-admin-edit-mobile {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+  }
+  
+  .btn-admin-edit-mobile:active {
+    transform: scale(0.97);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+  }
+  
+  .btn-admin-delete-mobile {
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    color: white;
+  }
+  
+  .btn-admin-delete-mobile:active {
+    transform: scale(0.97);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+  }
+}
+
+@media (max-width: 480px) {
+  .btn-admin-edit-mobile,
+  .btn-admin-delete-mobile {
+    font-size: 0.85rem;
+    padding: 8px 10px;
+    gap: 4px;
+  }
+}
+
+/* Birthday Event Info Banner */
+.event-info-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  background: linear-gradient(135deg, #e3f2fd 0%, #f3e5f5 100%);
+  border: 1px solid #bbdefb;
+  border-radius: 8px;
+  margin-top: 12px;
+  margin-bottom: 12px;
+}
+
+.event-info-banner .info-icon {
+  font-size: 1.2rem;
+  flex-shrink: 0;
+}
+
+.event-info-banner .info-text {
+  font-size: 0.9rem;
+  color: #455a64;
+  font-weight: 500;
+  line-height: 1.4;
+  font-family: var(--font-body);
+}
+
+@media (max-width: 768px) {
+  .event-info-banner {
+    padding: 10px 14px;
+    gap: 8px;
+  }
+
+  .event-info-banner .info-icon {
+    font-size: 1.1rem;
+  }
+
+  .event-info-banner .info-text {
+    font-size: 0.85rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .event-info-banner {
+    padding: 8px 12px;
+  }
+
+  .event-info-banner .info-text {
+    font-size: 0.8rem;
   }
 }
 

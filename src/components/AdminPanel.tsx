@@ -12,6 +12,7 @@ interface UserData {
   email: string;
   alias: string;
   role: UserRole;
+  position?: string;
   createdAt?: Date;
 }
 
@@ -52,6 +53,7 @@ const AdminPanel = () => {
         email: doc.data().email || '',
         alias: doc.data().alias || '',
         role: doc.data().role || 'PLAYER',
+        position: doc.data().position || undefined,
         createdAt: doc.data().createdAt?.toDate()
       }));
       setUsers(usersData);
@@ -315,13 +317,14 @@ const AdminPanel = () => {
                 <th>Email</th>
                 <th>Alias</th>
                 <th>Rol</th>
+                <th>Posición</th>
                 <th>Acciones</th>
               </tr>
             </thead>
             <tbody>
               {users.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="no-users">
+                  <td colSpan={5} className="no-users">
                     No hay usuarios registrados
                   </td>
                 </tr>
@@ -332,9 +335,10 @@ const AdminPanel = () => {
                     <td>{userData.alias}</td>
                     <td>
                       <span className={`role-badge role-${userData.role.toLowerCase()}`}>
-                        {userData.role === 'ADMIN' ? 'ADMINISTRADOR' : 'JUGADOR'}
+                        {userData.role === 'ADMIN' ? 'ADMIN' : 'JUGADORA'}
                       </span>
                     </td>
+                    <td>{userData.role === 'PLAYER' ? (userData.position || '-') : '-'}</td>
                     <td className="actions-cell">
                       <button
                         onClick={() => openEditUserModal(userData)}
@@ -465,7 +469,7 @@ const AdminPanel = () => {
                 type="text"
                 value={userFormData.alias}
                 onChange={(e) => setUserFormData({ ...userFormData, alias: e.target.value })}
-                placeholder="Nombre del jugador"
+                placeholder="Nombre de la jugadora"
                 maxLength={30}
                 disabled={loading}
               />
@@ -479,8 +483,8 @@ const AdminPanel = () => {
                 onChange={(e) => setUserFormData({ ...userFormData, role: e.target.value as UserRole })}
                 disabled={loading}
               >
-                <option value="ADMIN">ADMINISTRADOR</option>
-                <option value="PLAYER">JUGADOR</option>
+                <option value="ADMIN">ADMIN</option>
+                <option value="PLAYER">JUGADORA</option>
               </select>
             </div>
 
