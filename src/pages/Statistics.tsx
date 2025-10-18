@@ -18,6 +18,11 @@ const Statistics = () => {
     trainingsAttended: 0
   });
   const [saving, setSaving] = useState(false);
+  const [positionStats, setPositionStats] = useState<{
+    position: string;
+    count: number;
+    percentage: number;
+  }[]>([]);
 
   useEffect(() => {
     loadStatistics();
@@ -91,6 +96,31 @@ const Statistics = () => {
 
       console.log(`✅ Loaded statistics for ${statsArray.length} users from stats collection`);
       setStats(statsArray);
+
+      // STEP 5: Calculate position statistics
+      const positionCounts: { [key: string]: number } = {
+        'Arquera': 0,
+        'Defensora': 0,
+        'Mediocampista': 0,
+        'Delantera': 0
+      };
+
+      let totalWithPosition = 0;
+
+      usersMap.forEach((userData) => {
+        if (userData.position && positionCounts.hasOwnProperty(userData.position)) {
+          positionCounts[userData.position]++;
+          totalWithPosition++;
+        }
+      });
+
+      const positionStatsArray = Object.entries(positionCounts).map(([position, count]) => ({
+        position,
+        count,
+        percentage: totalWithPosition > 0 ? (count / totalWithPosition) * 100 : 0
+      }));
+
+      setPositionStats(positionStatsArray);
     } catch (error) {
       console.error('Error loading statistics:', error);
     } finally {
@@ -164,6 +194,34 @@ const Statistics = () => {
         </div>
       ) : (
         <>
+          {/* Position Statistics */}
+          <div className="positions-section">
+            <h2>Distribución de Posiciones</h2>
+            <div className="positions-grid">
+              {positionStats.map((stat) => (
+                <div key={stat.position} className="position-card">
+                  <div className="position-icon">
+                    {stat.position === 'Arquera' && '🧤'}
+                    {stat.position === 'Defensora' && '🛡️'}
+                    {stat.position === 'Mediocampista' && '⚡'}
+                    {stat.position === 'Delantera' && '⚽'}
+                  </div>
+                  <h3 className="position-name">{stat.position}</h3>
+                  <div className="position-stats">
+                    <div className="position-count">{stat.count} jugadora{stat.count !== 1 ? 's' : ''}</div>
+                    <div className="position-percentage">{stat.percentage.toFixed(1)}%</div>
+                  </div>
+                  <div className="position-bar-container">
+                    <div 
+                      className="position-bar" 
+                      style={{ width: `${stat.percentage}%` }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
           <div className="stats-summary">
             <div className="stat-card">
               <h3>Jugadoras Registradas</h3>
