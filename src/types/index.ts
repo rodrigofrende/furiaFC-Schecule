@@ -18,6 +18,14 @@ export interface AllowedUser {
 
 export type EventType = 'TRAINING' | 'MATCH' | 'BIRTHDAY' | 'CUSTOM';
 
+export interface Rival {
+  id: string;
+  name: string;
+  logoUrl?: string; // Para el futuro
+  createdAt: Date;
+  createdBy: string;
+}
+
 export interface Event {
   id: string;
   type: EventType;
@@ -25,6 +33,8 @@ export interface Event {
   title: string;
   description?: string;
   location?: string;
+  rivalId?: string; // Para eventos tipo MATCH
+  rivalName?: string; // Para eventos tipo MATCH
   createdBy: string;
   createdAt: Date;
   isRecurring?: boolean;
@@ -42,6 +52,8 @@ export interface Attendance {
   attending: boolean; // Keep for backward compatibility
   status?: AttendanceStatus; // New field for three-state system
   comment?: string;
+  withCar?: boolean; // Si va con auto
+  canGiveRide?: boolean; // Si puede llevar a alguien (solo si withCar es true)
   createdAt: Date;
   updatedAt: Date;
 }
@@ -63,6 +75,42 @@ export interface PlayerStats {
   totalAttended: number;
   goals?: number;
   assists?: number;
+  figureOfTheMatch?: number; // Times selected as figure of the match
   lastUpdated: Date;
+}
+
+// Match History types
+export interface Goal {
+  id: string;
+  playerId: string;
+  playerName: string;
+  assistPlayerId?: string;
+  assistPlayerName?: string;
+  createdAt: Date;
+}
+
+export interface MatchResult {
+  id: string;
+  eventId: string; // Reference to the archived event
+  rivalName: string;
+  furiaGoals: number;
+  rivalGoals: number;
+  goals: Goal[]; // List of goals scored by Furia players
+  figureOfTheMatchId?: string; // Player ID of the figure of the match
+  figureOfTheMatchName?: string; // Player name of the figure of the match
+  date: Date;
+  location?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface MatchHistoryItem {
+  id: string;
+  eventId: string;
+  rivalName: string;
+  date: Date;
+  location?: string;
+  result?: MatchResult; // Optional, only if admin has entered result
+  attendance: number; // Number of players who attended
 }
 

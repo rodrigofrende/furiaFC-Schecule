@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
-import { collection, getDocs, writeBatch, doc, Timestamp, addDoc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { collection, getDocs, writeBatch, doc, Timestamp, addDoc, updateDoc, deleteDoc, query, where } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { useAuth } from '../context/AuthContext';
 import Modal from './Modal';
 import '../styles/AdminPanel.css';
 import type { UserRole } from '../types';
-import { initializeStatsForAllUsers, recalculateAllStats, cleanupDuplicateStats, syncStatsWithUsers } from '../utils/initializeStats';
+import { createTestMatches } from '../utils/createTestMatches';
 
 interface UserData {
   id: string;
@@ -30,9 +30,9 @@ const AdminPanel = () => {
     role: 'PLAYER' as UserRole
   });
   const [emailError, setEmailError] = useState('');
-  const [recalculatingStats, setRecalculatingStats] = useState(false);
-  const [cleaningStats, setCleaningStats] = useState(false);
-  const [syncingStats, setSyncingStats] = useState(false);
+  const [resettingStats, setResettingStats] = useState(false);
+  const [creatingTestMatches, setCreatingTestMatches] = useState(false);
+  const [deletingHistory, setDeletingHistory] = useState(false);
 
   // Solo mostrar para administradores
   if (user?.role !== 'ADMIN') {
@@ -213,79 +213,183 @@ const AdminPanel = () => {
     setShowDeleteModal(true);
   };
 
-  const handleInitializeStats = async () => {
-    if (!confirm('¿Deseas inicializar las estadísticas para todos los usuarios?\n\nEsto creará documentos de estadísticas para usuarios que aún no los tengan.')) {
+  const handleResetStats = async () => {
+    const confirmation = confirm(
+      '🚨 ¿Estás seguro de que quieres RESETEAR todas las estadísticas?\n\n' +
+      'Esta acción eliminará:\n' +
+      '• Todas las estadísticas de usuarios (colección stats)\n' +
+      '• Todos los eventos archivados (colección events_archive)\n\n' +
+      '⚠️ ESTA ACCIÓN ES IRREVERSIBLE\n\n' +
+      '¿Deseas continuar?'
+    );
+
+    if (!confirmation) {
       return;
     }
 
-    setLoading(true);
+    // Segunda confirmación para estar seguros
+    const doubleConfirmation = confirm(
+      '⚠️ ÚLTIMA CONFIRMACIÓN\n\n' +
+      'Se borrarán TODAS las estadísticas y eventos archivados.\n' +
+      'Las estadísticas de asistencia volverán a CERO.\n\n' +
+      '¿Estás ABSOLUTAMENTE SEGURO?'
+    );
+
+    if (!doubleConfirmation) {
+      return;
+    }
+
+    setResettingStats(true);
     try {
-      const count = await initializeStatsForAllUsers();
-      alert(`✅ Estadísticas inicializadas correctamente\n${count} usuario(s) inicializado(s)`);
+      const batch = writeBatch(db);
+      let statsDeleted = 0;
+      let archiveDeleted = 0;
+
+      // Eliminar todos los documentos de la colección 'stats'
+      const statsRef = collection(db, 'stats');
+      const statsSnapshot = await getDocs(statsRef);
+      statsSnapshot.forEach((doc) => {
+        batch.delete(doc.ref);
+        statsDeleted++;
+      });
+
+      // Eliminar todos los documentos de la colección 'events_archive'
+      const archiveRef = collection(db, 'events_archive');
+      const archiveSnapshot = await getDocs(archiveRef);
+      archiveSnapshot.forEach((doc) => {
+        batch.delete(doc.ref);
+        archiveDeleted++;
+      });
+
+      await batch.commit();
+
+      alert(
+        `✅ Reseteo de estadísticas completado:\n\n` +
+        `• ${statsDeleted} estadísticas eliminadas\n` +
+        `• ${archiveDeleted} eventos archivados eliminados\n\n` +
+        `Las estadísticas ahora están en cero.`
+      );
     } catch (error) {
-      console.error('Error initializing stats:', error);
-      alert('❌ Error al inicializar las estadísticas');
+      console.error('Error resetting stats:', error);
+      alert('❌ Error al resetear las estadísticas');
     } finally {
-      setLoading(false);
+      setResettingStats(false);
     }
   };
 
-  const handleRecalculateStats = async () => {
-    if (!confirm('¿Deseas recalcular las estadísticas de todos los usuarios?\n\nEsto actualizará las estadísticas basándose en los eventos archivados.')) {
+  const handleCreateTestMatches = async () => {
+    if (!confirm('¿Deseas crear 3 partidos de prueba?\n\nEstos partidos serán creados con fechas pasadas para que se archiven automáticamente.')) {
       return;
     }
 
-    setRecalculatingStats(true);
+    setCreatingTestMatches(true);
     try {
-      const recalculatedCount = await recalculateAllStats();
-      alert(`✅ Se recalcularon estadísticas para ${recalculatedCount} usuario(s) basándose en eventos archivados`);
-    } catch (error) {
-      console.error('Error recalculating stats:', error);
-      alert('❌ Error al recalcular estadísticas');
-    } finally {
-      setRecalculatingStats(false);
-    }
-  };
-
-  const handleCleanupStats = async () => {
-    if (!confirm('¿Deseas limpiar los duplicados en las estadísticas?\n\nEsto consolidará las entradas duplicadas de estadísticas.')) {
-      return;
-    }
-
-    setCleaningStats(true);
-    try {
-      const cleanedCount = await cleanupDuplicateStats();
-      if (cleanedCount > 0) {
-        alert(`✅ Se consolidaron ${cleanedCount} entradas duplicadas de estadísticas`);
+      const result = await createTestMatches(user!.id);
+      if (result.success) {
+        alert('✅ ' + result.message + '\n\nRecarga la página de Eventos para que se archiven automáticamente.');
       } else {
-        alert('ℹ️ No se encontraron duplicados para consolidar');
+        alert('❌ ' + result.message);
       }
     } catch (error) {
-      console.error('Error cleaning up stats:', error);
-      alert('❌ Error al limpiar estadísticas duplicadas');
+      console.error('Error creating test matches:', error);
+      alert('❌ Error al crear los partidos de prueba');
     } finally {
-      setCleaningStats(false);
+      setCreatingTestMatches(false);
     }
   };
 
-  const handleSyncStats = async () => {
-    if (!confirm('¿Deseas sincronizar las estadísticas con la lista de usuarios?\n\nEsto eliminará las estadísticas de usuarios que ya no existen.')) {
+  const handleDeleteMatchHistory = async () => {
+    const confirmation = confirm(
+      '🚨 ¿Estás seguro de que quieres ELIMINAR TODO EL HISTORIAL de partidos?\n\n' +
+      'Esta acción eliminará:\n' +
+      '• Todos los partidos archivados (eventos tipo MATCH)\n' +
+      '• Todas las asistencias de esos partidos\n' +
+      '• Todos los resultados ingresados (match_results)\n\n' +
+      '⚠️ ESTA ACCIÓN ES IRREVERSIBLE\n\n' +
+      '¿Deseas continuar?'
+    );
+
+    if (!confirmation) {
       return;
     }
 
-    setSyncingStats(true);
+    // Segunda confirmación
+    const doubleConfirmation = confirm(
+      '⚠️ ÚLTIMA CONFIRMACIÓN\n\n' +
+      'Se borrará TODO el historial de partidos.\n' +
+      'Los resultados y goles registrados se perderán permanentemente.\n\n' +
+      '¿Estás ABSOLUTAMENTE SEGURO?'
+    );
+
+    if (!doubleConfirmation) {
+      return;
+    }
+
+    setDeletingHistory(true);
     try {
-      const syncedCount = await syncStatsWithUsers();
-      if (syncedCount > 0) {
-        alert(`✅ Se sincronizaron las estadísticas con la lista de usuarios. Se removieron ${syncedCount} entradas huérfanas.`);
-      } else {
-        alert('ℹ️ Las estadísticas ya están sincronizadas con la lista de usuarios');
+      let matchesDeleted = 0;
+      let attendancesDeleted = 0;
+      let resultsDeleted = 0;
+
+      // 1. Obtener todos los eventos archivados de tipo MATCH
+      const eventsArchiveRef = collection(db, 'events_archive');
+      const matchesQuery = query(eventsArchiveRef, where('type', '==', 'MATCH'));
+      const matchesSnapshot = await getDocs(matchesQuery);
+      
+      const matchIds: string[] = [];
+      const batch1 = writeBatch(db);
+      
+      matchesSnapshot.forEach((matchDoc) => {
+        matchIds.push(matchDoc.id);
+        batch1.delete(matchDoc.ref);
+        matchesDeleted++;
+      });
+      
+      await batch1.commit();
+
+      // 2. Eliminar asistencias archivadas relacionadas con esos partidos
+      if (matchIds.length > 0) {
+        const attendancesArchiveRef = collection(db, 'attendances_archive');
+        const attendancesSnapshot = await getDocs(attendancesArchiveRef);
+        
+        const batch2 = writeBatch(db);
+        attendancesSnapshot.forEach((attendanceDoc) => {
+          const data = attendanceDoc.data();
+          if (matchIds.includes(data.eventId)) {
+            batch2.delete(attendanceDoc.ref);
+            attendancesDeleted++;
+          }
+        });
+        
+        await batch2.commit();
+
+        // 3. Eliminar resultados de partidos
+        const resultsRef = collection(db, 'match_results');
+        const resultsSnapshot = await getDocs(resultsRef);
+        
+        const batch3 = writeBatch(db);
+        resultsSnapshot.forEach((resultDoc) => {
+          if (matchIds.includes(resultDoc.id)) {
+            batch3.delete(resultDoc.ref);
+            resultsDeleted++;
+          }
+        });
+        
+        await batch3.commit();
       }
+
+      alert(
+        `✅ Historial de partidos eliminado:\n\n` +
+        `• ${matchesDeleted} partidos eliminados\n` +
+        `• ${attendancesDeleted} asistencias eliminadas\n` +
+        `• ${resultsDeleted} resultados eliminados\n\n` +
+        `El historial ha sido limpiado completamente.`
+      );
     } catch (error) {
-      console.error('Error syncing stats:', error);
-      alert('❌ Error al sincronizar estadísticas');
+      console.error('Error deleting match history:', error);
+      alert('❌ Error al eliminar el historial de partidos');
     } finally {
-      setSyncingStats(false);
+      setDeletingHistory(false);
     }
   };
 
@@ -373,53 +477,8 @@ const AdminPanel = () => {
         </div>
       </div>
 
-      {/* Sección de Gestión de Estadísticas */}
+      {/* Sección de Acciones de Admin */}
       <div className="admin-actions">
-        <div className="action-card">
-          <h3>📊 Gestión de Estadísticas</h3>
-          <p>Herramientas para administrar y mantener las estadísticas de los usuarios.</p>
-          
-          <div className="stats-admin-buttons">
-            <button 
-              onClick={handleInitializeStats}
-              className="btn-primary"
-              disabled={loading}
-              title="Crear estadísticas iniciales para usuarios que no las tengan"
-            >
-              📊 Inicializar Estadísticas
-            </button>
-            
-            <button 
-              onClick={handleRecalculateStats}
-              className="btn-primary"
-              disabled={recalculatingStats}
-              title="Recalcular estadísticas basándose en eventos archivados"
-            >
-              {recalculatingStats ? 'Recalculando...' : '🔄 Recalcular Estadísticas'}
-            </button>
-            
-            <button 
-              onClick={handleCleanupStats}
-              className="btn-primary"
-              disabled={cleaningStats}
-              title="Eliminar entradas duplicadas en las estadísticas"
-            >
-              {cleaningStats ? 'Limpiando...' : '🧹 Limpiar Duplicados'}
-            </button>
-            
-            <button 
-              onClick={handleSyncStats}
-              className="btn-primary"
-              disabled={syncingStats}
-              title="Sincronizar estadísticas con la lista de usuarios actual"
-            >
-              {syncingStats ? 'Sincronizando...' : '🔗 Sincronizar con Usuarios'}
-            </button>
-          </div>
-          
-          <p className="info-text">💡 Usa estas herramientas para mantener las estadísticas actualizadas y sin errores</p>
-        </div>
-
         <div className="action-card">
           <h3>🗑️ Limpieza de Datos</h3>
           <p>Elimina todos los eventos y asistencias de la base de datos.</p>
@@ -431,6 +490,48 @@ const AdminPanel = () => {
             disabled={loading}
           >
             🗑️ Borrar Tabla de Eventos
+          </button>
+        </div>
+
+        <div className="action-card">
+          <h3>🏆 Gestión de Historial de Partidos</h3>
+          <p>Herramientas para administrar el historial de partidos.</p>
+          
+          <div className="stats-admin-buttons">
+            <button 
+              onClick={handleCreateTestMatches}
+              className="btn-primary"
+              disabled={creatingTestMatches}
+              title="Crear 3 partidos de prueba con fechas pasadas"
+            >
+              {creatingTestMatches ? 'Creando...' : '⚽ Crear Partidos de Prueba'}
+            </button>
+            
+            <button 
+              onClick={handleDeleteMatchHistory}
+              className="btn-danger"
+              disabled={deletingHistory}
+              title="Eliminar todo el historial de partidos (irreversible)"
+            >
+              {deletingHistory ? 'Eliminando...' : '🗑️ Borrar Todo el Historial'}
+            </button>
+          </div>
+          
+          <p className="info-text">💡 Los partidos de prueba se crean con fechas pasadas y se archivan automáticamente</p>
+          <p className="warning-text">⚠️ Borrar el historial eliminará todos los partidos, resultados y goles registrados</p>
+        </div>
+
+        <div className="action-card">
+          <h3>🔄 Resetear Estadísticas</h3>
+          <p>Elimina todas las estadísticas y eventos archivados de la base de datos.</p>
+          <p className="warning-text">⚠️ Esta acción es IRREVERSIBLE y eliminará todo el historial de asistencias</p>
+          
+          <button 
+            onClick={handleResetStats}
+            className="btn-danger"
+            disabled={resettingStats}
+          >
+            {resettingStats ? 'Reseteando...' : '🔄 Resetear Todas las Estadísticas'}
           </button>
         </div>
       </div>

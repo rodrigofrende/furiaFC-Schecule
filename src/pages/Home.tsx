@@ -6,7 +6,33 @@ import { type Event, type Attendance, type AttendanceStatus, type EventType } fr
 import Modal from '../components/Modal';
 import CreateEvent from '../components/CreateEvent';
 import { Tooltip } from 'react-tooltip';
+import 'react-tooltip/dist/react-tooltip.css';
 import '../styles/Home.css';
+
+// Configuración consistente para todos los tooltips
+const tooltipStyle = {
+  backgroundColor: 'rgba(0, 0, 0, 0.9)',
+  color: 'white',
+  fontSize: '12px',
+  fontFamily: 'var(--font-body)',
+  fontWeight: '500',
+  borderRadius: '6px',
+  padding: '8px 12px',
+  maxWidth: '250px',
+  wordWrap: 'break-word' as const,
+  zIndex: 9999
+};
+
+const tooltipProps = {
+  place: 'top' as const,
+  positionStrategy: 'fixed' as const,
+  style: tooltipStyle,
+  delayShow: 100,
+  noArrow: false,
+  offset: 10,
+  float: false,
+  clickable: false
+};
 
 const Home = () => {
   const { user } = useAuth();
@@ -16,6 +42,8 @@ const Home = () => {
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [attendanceStatus, setAttendanceStatus] = useState<AttendanceStatus>('pending');
   const [comment, setComment] = useState('');
+  const [withCar, setWithCar] = useState(false);
+  const [canGiveRide, setCanGiveRide] = useState(false);
   const [savingAttendance, setSavingAttendance] = useState(false);
   const [showParticipantsModal, setShowParticipantsModal] = useState(false);
   const [loadingModal, setLoadingModal] = useState(false);
@@ -123,7 +151,9 @@ const Home = () => {
             createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate() : new Date(data.createdAt),
             isRecurring: data.isRecurring,
             recurringType: data.recurringType,
-            originalEventId: data.originalEventId
+            originalEventId: data.originalEventId,
+            rivalId: data.rivalId || undefined,
+            rivalName: data.rivalName || undefined
           });
         }
       });
@@ -153,7 +183,10 @@ const Home = () => {
             userId: data.userId,
             userDisplayName: data.userDisplayName,
             attending: data.attending,
+            status: data.status,
             comment: data.comment,
+            withCar: data.withCar || false,
+            canGiveRide: data.canGiveRide || false,
             createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate() : new Date(data.createdAt),
             updatedAt: data.updatedAt instanceof Timestamp ? data.updatedAt.toDate() : new Date(data.updatedAt)
           };
@@ -359,6 +392,8 @@ const Home = () => {
           attending: data.attending,
           status: data.status || (data.attending ? 'attending' : 'not-attending'),
           comment: data.comment,
+          withCar: data.withCar || false,
+          canGiveRide: data.canGiveRide || false,
           createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate() : new Date(data.createdAt),
           updatedAt: data.updatedAt instanceof Timestamp ? data.updatedAt.toDate() : new Date(data.updatedAt)
         });
@@ -378,6 +413,8 @@ const Home = () => {
             attending: false,
             status: 'not-voted' as AttendanceStatus,
             comment: '',
+            withCar: false,
+            canGiveRide: false,
             createdAt: new Date(),
             updatedAt: new Date()
           });
@@ -403,6 +440,14 @@ const Home = () => {
         
         notVoted: usersWhoHaventVoted.sort((a, b) => a.userDisplayName.localeCompare(b.userDisplayName))
       };
+      
+      console.log('👥 Participantes cargados con iconos:', {
+        attending: groupedParticipants.attending.map(p => ({
+          name: p.userDisplayName,
+          withCar: p.withCar,
+          canGiveRide: p.canGiveRide
+        }))
+      });
       
       setEventParticipants(groupedParticipants);
     } catch (error) {
@@ -432,9 +477,20 @@ const Home = () => {
         } else {
           setAttendanceStatus(existingAttendance.attending ? 'attending' : 'not-attending');
         }
+        // Load car info
+        setWithCar(existingAttendance.withCar || false);
+        setCanGiveRide(existingAttendance.canGiveRide || false);
+        
+        console.log('📥 Cargando asistencia existente:', {
+          withCar: existingAttendance.withCar,
+          canGiveRide: existingAttendance.canGiveRide,
+          status: existingAttendance.status
+        });
       } else {
         // No previous vote - default to pending
         setAttendanceStatus('pending');
+        setWithCar(false);
+        setCanGiveRide(false);
       }
       
       setComment(existingAttendance?.comment || '');
@@ -470,8 +526,17 @@ const Home = () => {
         attending: attendanceStatus === 'attending',
         status: attendanceStatus, // Save the actual status including 'pending'
         comment: comment.trim(),
+        withCar: attendanceStatus === 'attending' ? withCar : false,
+        canGiveRide: attendanceStatus === 'attending' && withCar ? canGiveRide : false,
         updatedAt: serverTimestamp()
       };
+
+      console.log('💾 Guardando asistencia:', {
+        withCar,
+        canGiveRide,
+        attendanceStatus,
+        finalData: attendanceData
+      });
 
       const attendanceId = attendances[selectedEvent.id]?.id || `${user.id}_${selectedEvent.id}`;
       
@@ -591,11 +656,22 @@ const Home = () => {
   };
 
   const handleEditEvent = (event: Event) => {
+    // Las jugadoras solo pueden editar eventos CUSTOM
+    if (user?.role === 'PLAYER' && event.type !== 'CUSTOM') {
+      alert('⚠️ Las jugadoras solo pueden editar eventos personalizados');
+      return;
+    }
     setEditingEvent(event);
     setShowCreateEventModal(true);
   };
 
-  const handleDeleteEvent = async (eventId: string) => {
+  const handleDeleteEvent = async (eventId: string, eventType?: EventType) => {
+    // Las jugadoras solo pueden eliminar eventos CUSTOM
+    if (user?.role === 'PLAYER' && eventType !== 'CUSTOM') {
+      alert('⚠️ Las jugadoras solo pueden eliminar eventos personalizados');
+      return;
+    }
+
     if (!window.confirm('¿Estás seguro de que quieres eliminar este evento? Esta acción no se puede deshacer.')) {
       return;
     }
@@ -670,7 +746,17 @@ const Home = () => {
                     {formatDaysUntil(daysUntil)}
                   </div>
                 </div>
-                <h3>{event.title}</h3>
+                <h3>
+                  {event.type === 'MATCH' && event.rivalName ? (
+                    <>
+                      <span className="match-title-furia">FURIA</span>
+                      <span className="match-vs"> VS </span>
+                      <span className="match-title-rival">{event.rivalName}</span>
+                    </>
+                  ) : (
+                    event.title
+                  )}
+                </h3>
                 <p className="event-date">{formatDate(event.date, event.type)}</p>
                 <div className="event-location">
                   <section className="location-container">
@@ -689,16 +775,7 @@ const Home = () => {
                     </button>
                     <Tooltip 
                       id={`copy-tooltip-${event.id}`}
-                      place="top"
-                      style={{
-                        backgroundColor: 'rgba(0, 0, 0, 0.9)',
-                        color: 'white',
-                        fontSize: '12px',
-                        fontFamily: 'var(--font-body)',
-                        fontWeight: '500',
-                        borderRadius: '6px',
-                        padding: '6px 10px'
-                      }}
+                      {...tooltipProps}
                     />
                   </section>
                 </div>
@@ -725,7 +802,7 @@ const Home = () => {
                             ✏️ Editar
                           </button>
                           <button 
-                            onClick={() => handleDeleteEvent(event.id)}
+                            onClick={() => handleDeleteEvent(event.id, event.type)}
                             className="btn-admin-delete-mobile"
                             title="Eliminar evento"
                           >
@@ -742,7 +819,7 @@ const Home = () => {
                             ✏️
                           </button>
                           <button 
-                            onClick={() => handleDeleteEvent(event.id)}
+                            onClick={() => handleDeleteEvent(event.id, event.type)}
                             className="btn-admin-delete"
                             title="Eliminar evento"
                           >
@@ -789,7 +866,7 @@ const Home = () => {
                         Ver Participantes
                       </button>
                       
-                      {user?.role === 'ADMIN' && (
+                      {(user?.role === 'ADMIN' || (user?.role === 'PLAYER' && event.type === 'CUSTOM')) && (
                         <div className="admin-event-actions-mobile">
                           <button 
                             onClick={() => handleEditEvent(event)}
@@ -799,7 +876,7 @@ const Home = () => {
                             ✏️ Editar
                           </button>
                           <button 
-                            onClick={() => handleDeleteEvent(event.id)}
+                            onClick={() => handleDeleteEvent(event.id, event.type)}
                             className="btn-admin-delete-mobile"
                             title="Eliminar evento"
                           >
@@ -809,7 +886,7 @@ const Home = () => {
                       )}
                     </div>
                     
-                    {user?.role === 'ADMIN' && (
+                    {(user?.role === 'ADMIN' || (user?.role === 'PLAYER' && event.type === 'CUSTOM')) && (
                       <div className="admin-event-actions-desktop">
                         <button 
                           onClick={() => handleEditEvent(event)}
@@ -819,7 +896,7 @@ const Home = () => {
                           ✏️
                         </button>
                         <button 
-                          onClick={() => handleDeleteEvent(event.id)}
+                          onClick={() => handleDeleteEvent(event.id, event.type)}
                           className="btn-admin-delete"
                           title="Eliminar evento"
                         >
@@ -902,6 +979,36 @@ const Home = () => {
               <span className="char-count">{comment.length}/50</span>
             </div>
 
+            {attendanceStatus === 'attending' && (
+              <div className="form-group car-options-row">
+                <div className="toggle-label">
+                  <span className="toggle-text">🚗 Voy con auto</span>
+                  <input
+                    type="checkbox"
+                    checked={withCar}
+                    onChange={(e) => {
+                      setWithCar(e.target.checked);
+                      // Si desmarco "voy con auto", también desmarcar "puedo llevar a alguien"
+                      if (!e.target.checked) {
+                        setCanGiveRide(false);
+                      }
+                    }}
+                    disabled={savingAttendance}
+                  />
+                </div>
+
+                <div className="toggle-label">
+                  <span className="toggle-text">👥 Puedo llevar a alguien</span>
+                  <input
+                    type="checkbox"
+                    checked={canGiveRide}
+                    onChange={(e) => setCanGiveRide(e.target.checked)}
+                    disabled={savingAttendance || !withCar}
+                  />
+                </div>
+              </div>
+            )}
+
             <div className="modal-actions">
               <button 
                 onClick={() => setSelectedEvent(null)} 
@@ -944,31 +1051,50 @@ const Home = () => {
                             {participant.userDisplayName}
                           </div>
                         </div>
-                        <div className="participant-comment">
+                        <div className="participant-icons">
+                          {participant.withCar && (
+                            <span 
+                              className="car-icon"
+                              data-tooltip-id={`car-tooltip-${participant.id}`}
+                              data-tooltip-content="Va con auto"
+                            >
+                              🚗
+                            </span>
+                          )}
+                          {participant.canGiveRide && (
+                            <span 
+                              className="ride-icon"
+                              data-tooltip-id={`ride-tooltip-${participant.id}`}
+                              data-tooltip-content="Puede llevar a alguien"
+                            >
+                              👥
+                            </span>
+                          )}
                           <span 
                             className={`comment-icon ${participant.comment ? 'has-comment' : 'no-comment'}`}
                             data-tooltip-id={`comment-tooltip-${participant.id}`}
                             data-tooltip-content={participant.comment || 'Sin comentario'}
                           >
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                               <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
                             </svg>
                           </span>
                           <Tooltip 
                             id={`comment-tooltip-${participant.id}`}
-                            place="top"
-                            style={{
-                              backgroundColor: 'rgba(0, 0, 0, 0.9)',
-                              color: 'white',
-                              fontSize: '12px',
-                              fontFamily: 'var(--font-body)',
-                              fontWeight: '500',
-                              borderRadius: '6px',
-                              padding: '8px 12px',
-                              maxWidth: '250px',
-                              wordWrap: 'break-word'
-                            }}
+                            {...tooltipProps}
                           />
+                          {participant.withCar && (
+                            <Tooltip 
+                              id={`car-tooltip-${participant.id}`}
+                              {...tooltipProps}
+                            />
+                          )}
+                          {participant.canGiveRide && (
+                            <Tooltip 
+                              id={`ride-tooltip-${participant.id}`}
+                              {...tooltipProps}
+                            />
+                          )}
                         </div>
                       </div>
                     ))}
@@ -986,31 +1112,50 @@ const Home = () => {
                             {participant.userDisplayName}
                           </div>
                         </div>
-                        <div className="participant-comment">
+                        <div className="participant-icons">
+                          {participant.withCar && (
+                            <span 
+                              className="car-icon"
+                              data-tooltip-id={`car-tooltip-pending-${participant.id}`}
+                              data-tooltip-content="Va con auto"
+                            >
+                              🚗
+                            </span>
+                          )}
+                          {participant.canGiveRide && (
+                            <span 
+                              className="ride-icon"
+                              data-tooltip-id={`ride-tooltip-pending-${participant.id}`}
+                              data-tooltip-content="Puede llevar a alguien"
+                            >
+                              👥
+                            </span>
+                          )}
                           <span 
                             className={`comment-icon ${participant.comment ? 'has-comment' : 'no-comment'}`}
-                            data-tooltip-id={`comment-tooltip-${participant.id}`}
+                            data-tooltip-id={`comment-tooltip-pending-${participant.id}`}
                             data-tooltip-content={participant.comment || 'Sin comentario'}
                           >
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                               <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
                             </svg>
                           </span>
                           <Tooltip 
-                            id={`comment-tooltip-${participant.id}`}
-                            place="top"
-                            style={{
-                              backgroundColor: 'rgba(0, 0, 0, 0.9)',
-                              color: 'white',
-                              fontSize: '12px',
-                              fontFamily: 'var(--font-body)',
-                              fontWeight: '500',
-                              borderRadius: '6px',
-                              padding: '8px 12px',
-                              maxWidth: '250px',
-                              wordWrap: 'break-word'
-                            }}
+                            id={`comment-tooltip-pending-${participant.id}`}
+                            {...tooltipProps}
                           />
+                          {participant.withCar && (
+                            <Tooltip 
+                              id={`car-tooltip-pending-${participant.id}`}
+                              {...tooltipProps}
+                            />
+                          )}
+                          {participant.canGiveRide && (
+                            <Tooltip 
+                              id={`ride-tooltip-pending-${participant.id}`}
+                              {...tooltipProps}
+                            />
+                          )}
                         </div>
                       </div>
                     ))}
@@ -1028,31 +1173,50 @@ const Home = () => {
                             {participant.userDisplayName}
                           </div>
                         </div>
-                        <div className="participant-comment">
+                        <div className="participant-icons">
+                          {participant.withCar && (
+                            <span 
+                              className="car-icon"
+                              data-tooltip-id={`car-tooltip-not-${participant.id}`}
+                              data-tooltip-content="Va con auto"
+                            >
+                              🚗
+                            </span>
+                          )}
+                          {participant.canGiveRide && (
+                            <span 
+                              className="ride-icon"
+                              data-tooltip-id={`ride-tooltip-not-${participant.id}`}
+                              data-tooltip-content="Puede llevar a alguien"
+                            >
+                              👥
+                            </span>
+                          )}
                           <span 
                             className={`comment-icon ${participant.comment ? 'has-comment' : 'no-comment'}`}
-                            data-tooltip-id={`comment-tooltip-${participant.id}`}
+                            data-tooltip-id={`comment-tooltip-not-${participant.id}`}
                             data-tooltip-content={participant.comment || 'Sin comentario'}
                           >
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                               <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
                             </svg>
                           </span>
                           <Tooltip 
-                            id={`comment-tooltip-${participant.id}`}
-                            place="top"
-                            style={{
-                              backgroundColor: 'rgba(0, 0, 0, 0.9)',
-                              color: 'white',
-                              fontSize: '12px',
-                              fontFamily: 'var(--font-body)',
-                              fontWeight: '500',
-                              borderRadius: '6px',
-                              padding: '8px 12px',
-                              maxWidth: '250px',
-                              wordWrap: 'break-word'
-                            }}
+                            id={`comment-tooltip-not-${participant.id}`}
+                            {...tooltipProps}
                           />
+                          {participant.withCar && (
+                            <Tooltip 
+                              id={`car-tooltip-not-${participant.id}`}
+                              {...tooltipProps}
+                            />
+                          )}
+                          {participant.canGiveRide && (
+                            <Tooltip 
+                              id={`ride-tooltip-not-${participant.id}`}
+                              {...tooltipProps}
+                            />
+                          )}
                         </div>
                       </div>
                     ))}
@@ -1070,31 +1234,50 @@ const Home = () => {
                             {participant.userDisplayName}
                           </div>
                         </div>
-                        <div className="participant-comment">
+                        <div className="participant-icons">
+                          {participant.withCar && (
+                            <span 
+                              className="car-icon"
+                              data-tooltip-id={`car-tooltip-notvoted-${participant.id}`}
+                              data-tooltip-content="Va con auto"
+                            >
+                              🚗
+                            </span>
+                          )}
+                          {participant.canGiveRide && (
+                            <span 
+                              className="ride-icon"
+                              data-tooltip-id={`ride-tooltip-notvoted-${participant.id}`}
+                              data-tooltip-content="Puede llevar a alguien"
+                            >
+                              👥
+                            </span>
+                          )}
                           <span 
                             className="comment-icon no-comment"
-                            data-tooltip-id={`comment-tooltip-${participant.id}`}
+                            data-tooltip-id={`comment-tooltip-notvoted-${participant.id}`}
                             data-tooltip-content="Aún no ha votado"
                           >
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                               <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
                             </svg>
                           </span>
                           <Tooltip 
-                            id={`comment-tooltip-${participant.id}`}
-                            place="top"
-                            style={{
-                              backgroundColor: 'rgba(0, 0, 0, 0.9)',
-                              color: 'white',
-                              fontSize: '12px',
-                              fontFamily: 'var(--font-body)',
-                              fontWeight: '500',
-                              borderRadius: '6px',
-                              padding: '8px 12px',
-                              maxWidth: '250px',
-                              wordWrap: 'break-word'
-                            }}
+                            id={`comment-tooltip-notvoted-${participant.id}`}
+                            {...tooltipProps}
                           />
+                          {participant.withCar && (
+                            <Tooltip 
+                              id={`car-tooltip-notvoted-${participant.id}`}
+                              {...tooltipProps}
+                            />
+                          )}
+                          {participant.canGiveRide && (
+                            <Tooltip 
+                              id={`ride-tooltip-notvoted-${participant.id}`}
+                              {...tooltipProps}
+                            />
+                          )}
                         </div>
                       </div>
                     ))}

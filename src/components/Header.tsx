@@ -28,7 +28,21 @@ const Header = () => {
         
         if (!userSnapshot.empty) {
           const userData = userSnapshot.docs[0].data();
-          setNewBirthday(userData.birthday || '');
+          // Convertir formato de cumpleaños a DD/MM si existe
+          if (userData.birthday) {
+            const birthday = userData.birthday;
+            // Si viene en formato YYYY-MM-DD o MM-DD, extraer día y mes
+            if (birthday.includes('-')) {
+              const parts = birthday.split('-');
+              const month = parts.length === 3 ? parts[1] : parts[0];
+              const day = parts.length === 3 ? parts[2] : parts[1];
+              setNewBirthday(`${day.padStart(2, '0')}/${month.padStart(2, '0')}`);
+            } else {
+              setNewBirthday(birthday);
+            }
+          } else {
+            setNewBirthday('');
+          }
           setNewPosition(userData.position || '');
         }
       } catch (error) {
@@ -39,9 +53,57 @@ const Header = () => {
     setShowEditModal(true);
   };
 
+  const handleBirthdayChange = (value: string) => {
+    // Solo permitir números y /
+    const cleaned = value.replace(/[^\d/]/g, '');
+    
+    // Formatear automáticamente DD/MM
+    let formatted = cleaned;
+    if (cleaned.length >= 2 && !cleaned.includes('/')) {
+      formatted = cleaned.slice(0, 2) + '/' + cleaned.slice(2, 4);
+    }
+    
+    // Limitar a DD/MM (5 caracteres máximo)
+    if (formatted.length <= 5) {
+      setNewBirthday(formatted);
+    }
+  };
+
+  const validateBirthday = (birthday: string): boolean => {
+    if (!birthday) return true; // Opcional
+    
+    const regex = /^(\d{2})\/(\d{2})$/;
+    const match = birthday.match(regex);
+    
+    if (!match) {
+      alert('⚠️ El formato del cumpleaños debe ser DD/MM (ejemplo: 15/03)');
+      return false;
+    }
+    
+    const day = parseInt(match[1], 10);
+    const month = parseInt(match[2], 10);
+    
+    if (month < 1 || month > 12) {
+      alert('⚠️ El mes debe estar entre 01 y 12');
+      return false;
+    }
+    
+    if (day < 1 || day > 31) {
+      alert('⚠️ El día debe estar entre 01 y 31');
+      return false;
+    }
+    
+    return true;
+  };
+
   const handleSaveProfile = async () => {
     if (!newName.trim()) {
       alert('⚠️ El nombre no puede estar vacío');
+      return;
+    }
+
+    // Validar formato del cumpleaños
+    if (!validateBirthday(newBirthday)) {
       return;
     }
 
@@ -53,7 +115,10 @@ const Header = () => {
         
         // Actualizar el cumpleaños si se proporcionó
         if (newBirthday) {
-          await updateBirthday(newBirthday);
+          // Convertir DD/MM a MM-DD para guardar en la DB
+          const [day, month] = newBirthday.split('/');
+          const formattedBirthday = `${month}-${day}`;
+          await updateBirthday(formattedBirthday);
         }
         
         // Actualizar la posición solo si es PLAYER
@@ -145,9 +210,11 @@ const Header = () => {
             <label>
               Fecha de cumpleaños (opcional):
               <input
-                type="date"
+                type="text"
                 value={newBirthday}
-                onChange={(e) => setNewBirthday(e.target.value)}
+                onChange={(e) => handleBirthdayChange(e.target.value)}
+                placeholder="DD/MM (ej: 15/03)"
+                maxLength={5}
                 disabled={saving}
               />
             </label>

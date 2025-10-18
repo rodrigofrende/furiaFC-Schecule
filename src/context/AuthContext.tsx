@@ -107,7 +107,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const birthdayEventsSnapshot = await getDocs(birthdayQuery);
 
       // Crear la fecha del cumpleaños para este año o el próximo
-      const [, month, day] = birthday.split('-').map(Number);
+      const parts = birthday.split('-').map(Number);
+      // Formato MM-DD (sin año)
+      const month = parts.length === 2 ? parts[0] : parts[1];
+      const day = parts.length === 2 ? parts[1] : parts[2];
       const today = new Date();
       const currentYear = today.getFullYear();
       

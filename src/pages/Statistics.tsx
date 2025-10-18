@@ -15,7 +15,8 @@ const Statistics = () => {
   const [editingPlayer, setEditingPlayer] = useState<PlayerStats | null>(null);
   const [editFormData, setEditFormData] = useState({
     matchesAttended: 0,
-    trainingsAttended: 0
+    trainingsAttended: 0,
+    figureOfTheMatch: 0
   });
   const [saving, setSaving] = useState(false);
   const [positionStats, setPositionStats] = useState<{
@@ -23,6 +24,11 @@ const Statistics = () => {
     count: number;
     percentage: number;
   }[]>([]);
+  
+  // Collapsible sections state
+  const [isPositionsOpen, setIsPositionsOpen] = useState(true);
+  const [isSummaryOpen, setIsSummaryOpen] = useState(true);
+  const [isTableOpen, setIsTableOpen] = useState(true);
 
   useEffect(() => {
     loadStatistics();
@@ -74,6 +80,7 @@ const Statistics = () => {
             totalAttended: userStats.totalAttended || 0,
             goals: userStats.goals || 0,
             assists: userStats.assists || 0,
+            figureOfTheMatch: userStats.figureOfTheMatch || 0,
             lastUpdated: userStats.lastUpdated?.toDate() || new Date()
           });
         } else {
@@ -86,13 +93,18 @@ const Statistics = () => {
             totalAttended: 0,
             goals: 0,
             assists: 0,
+            figureOfTheMatch: 0,
             lastUpdated: new Date()
           });
         }
       });
 
-      // Sort by total attended (descending)
-      statsArray.sort((a, b) => b.totalAttended - a.totalAttended);
+      // Sort by total points (attended + figureOfTheMatch) descending
+      statsArray.sort((a, b) => {
+        const pointsA = a.totalAttended + (a.figureOfTheMatch || 0);
+        const pointsB = b.totalAttended + (b.figureOfTheMatch || 0);
+        return pointsB - pointsA;
+      });
 
       console.log(`✅ Loaded statistics for ${statsArray.length} users from stats collection`);
       setStats(statsArray);
@@ -132,7 +144,8 @@ const Statistics = () => {
     setEditingPlayer(playerStat);
     setEditFormData({
       matchesAttended: playerStat.matchesAttended,
-      trainingsAttended: playerStat.trainingsAttended
+      trainingsAttended: playerStat.trainingsAttended,
+      figureOfTheMatch: playerStat.figureOfTheMatch || 0
     });
   };
 
@@ -152,6 +165,7 @@ const Statistics = () => {
         totalAttended,
         goals: editingPlayer.goals || 0,
         assists: editingPlayer.assists || 0,
+        figureOfTheMatch: editFormData.figureOfTheMatch,
         lastUpdated: serverTimestamp()
       }, { merge: true });
 
@@ -166,14 +180,14 @@ const Statistics = () => {
     }
   };
 
-  const handleIncrement = (field: 'matchesAttended' | 'trainingsAttended') => {
+  const handleIncrement = (field: 'matchesAttended' | 'trainingsAttended' | 'figureOfTheMatch') => {
     setEditFormData(prev => ({
       ...prev,
       [field]: prev[field] + 1
     }));
   };
 
-  const handleDecrement = (field: 'matchesAttended' | 'trainingsAttended') => {
+  const handleDecrement = (field: 'matchesAttended' | 'trainingsAttended' | 'figureOfTheMatch') => {
     setEditFormData(prev => ({
       ...prev,
       [field]: Math.max(0, prev[field] - 1) // No permitir negativos
@@ -186,7 +200,7 @@ const Statistics = () => {
 
   return (
     <div className="statistics-container">
-      <h1>Estadísticas de Asistencia</h1>
+      <h1>Estadísticas</h1>
 
       {stats.length === 0 ? (
         <div className="no-data">
@@ -196,102 +210,180 @@ const Statistics = () => {
         <>
           {/* Position Statistics */}
           <div className="positions-section">
-            <h2>Distribución de Posiciones</h2>
-            <div className="positions-grid">
-              {positionStats.map((stat) => (
-                <div key={stat.position} className="position-card">
-                  <div className="position-icon">
-                    {stat.position === 'Arquera' && '🧤'}
-                    {stat.position === 'Defensora' && '🛡️'}
-                    {stat.position === 'Mediocampista' && '⚡'}
-                    {stat.position === 'Delantera' && '⚽'}
+            <div className="section-header" onClick={() => setIsPositionsOpen(!isPositionsOpen)}>
+              <h2>Distribución de Posiciones</h2>
+              <button className="chevron-button" aria-label="Toggle section">
+                <svg 
+                  className={`chevron-icon ${isPositionsOpen ? 'open' : ''}`}
+                  width="24" 
+                  height="24" 
+                  viewBox="0 0 24 24" 
+                  fill="none" 
+                  stroke="currentColor" 
+                  strokeWidth="2"
+                >
+                  <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
+              </button>
+            </div>
+            {isPositionsOpen && (
+              <div className="positions-grid">
+                {positionStats.map((stat) => (
+                  <div key={stat.position} className="position-card">
+                    <div className="position-icon">
+                      {stat.position === 'Arquera' && '🧤'}
+                      {stat.position === 'Defensora' && '🛡️'}
+                      {stat.position === 'Mediocampista' && '⚡'}
+                      {stat.position === 'Delantera' && '⚽'}
+                    </div>
+                    <h3 className="position-name">{stat.position}</h3>
+                    <div className="position-stats">
+                      <div className="position-count">{stat.count} jugadora{stat.count !== 1 ? 's' : ''}</div>
+                      <div className="position-percentage">{stat.percentage.toFixed(1)}%</div>
+                    </div>
+                    <div className="position-bar-container">
+                      <div 
+                        className="position-bar" 
+                        style={{ width: `${stat.percentage}%` }}
+                      />
+                    </div>
                   </div>
-                  <h3 className="position-name">{stat.position}</h3>
-                  <div className="position-stats">
-                    <div className="position-count">{stat.count} jugadora{stat.count !== 1 ? 's' : ''}</div>
-                    <div className="position-percentage">{stat.percentage.toFixed(1)}%</div>
-                  </div>
-                  <div className="position-bar-container">
-                    <div 
-                      className="position-bar" 
-                      style={{ width: `${stat.percentage}%` }}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="stats-summary">
-            <div className="stat-card">
-              <h3>Jugadoras Registradas</h3>
-              <p className="stat-number">{stats.length}</p>
-            </div>
-            <div className="stat-card">
-              <h3>Total Asistencias</h3>
-              <p className="stat-number">{stats.reduce((sum, s) => sum + s.totalAttended, 0)}</p>
-            </div>
-            <div className="stat-card">
-              <h3>Total de Eventos</h3>
-              <p className="stat-number">{totalEvents}</p>
-            </div>
-          </div>
-
-          <div className="stats-table-container">
-            <table className="stats-table">
-              <thead>
-                <tr>
-                  <th>Posición</th>
-                  <th>Jugadora</th>
-                  <th>Estadísticas</th>
-                  <th>Total</th>
-                  {user?.role === 'ADMIN' && <th>Acciones</th>}
-                </tr>
-              </thead>
-              <tbody>
-                {stats.map((stat, index) => (
-                  <tr key={stat.userId} className={index < 3 ? `top-${index + 1}` : ''}>
-                    <td className="position">
-                      {index === 0 && '🥇'}
-                      {index === 1 && '🥈'}
-                      {index === 2 && '🥉'}
-                      {index > 2 && `#${index + 1}`}
-                    </td>
-                    <td className="player-name">{stat.displayName}</td>
-                    <td className="stats-cell">
-                      <div className="stat-row">
-                        <span className="stat-icon">⚽</span>
-                        <span className="stat-label">Partidos</span>
-                        <span className="stat-number">{stat.matchesAttended}</span>
-                      </div>
-                      <div className="stat-row">
-                        <span className="stat-icon">🏃</span>
-                        <span className="stat-label">Entrenamientos</span>
-                        <span className="stat-number">{stat.trainingsAttended}</span>
-                      </div>
-                    </td>
-                    <td className="stat-total">
-                      <strong>{stat.totalAttended}</strong>
-                    </td>
-                    {user?.role === 'ADMIN' && (
-                      <td className="actions-cell">
-                        <button
-                          onClick={() => handleEditPlayer(stat)}
-                          className="btn-icon-edit"
-                          data-tooltip-id="edit-stats-tooltip"
-                          data-tooltip-content="Editar estadísticas"
-                        >
-                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
-                          </svg>
-                        </button>
-                      </td>
-                    )}
-                  </tr>
                 ))}
-              </tbody>
-            </table>
+              </div>
+            )}
+          </div>
+
+          <div className="summary-section">
+            <div className="section-header" onClick={() => setIsSummaryOpen(!isSummaryOpen)}>
+              <h2>Resumen General</h2>
+              <button className="chevron-button" aria-label="Toggle section">
+                <svg 
+                  className={`chevron-icon ${isSummaryOpen ? 'open' : ''}`}
+                  width="24" 
+                  height="24" 
+                  viewBox="0 0 24 24" 
+                  fill="none" 
+                  stroke="currentColor" 
+                  strokeWidth="2"
+                >
+                  <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
+              </button>
+            </div>
+            {isSummaryOpen && (
+              <div className="stats-summary">
+                <div className="stat-card">
+                  <h3>Jugadoras Registradas</h3>
+                  <p className="stat-number">{stats.length}</p>
+                </div>
+                <div className="stat-card">
+                  <h3>Total Asistencias</h3>
+                  <p className="stat-number">{stats.reduce((sum, s) => sum + s.totalAttended, 0)}</p>
+                </div>
+                <div className="stat-card">
+                  <h3>Total de Eventos</h3>
+                  <p className="stat-number">{totalEvents}</p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="table-section">
+            <div className="section-header" onClick={() => setIsTableOpen(!isTableOpen)}>
+              <h2>Asistencia</h2>
+              <button className="chevron-button" aria-label="Toggle section">
+                <svg 
+                  className={`chevron-icon ${isTableOpen ? 'open' : ''}`}
+                  width="24" 
+                  height="24" 
+                  viewBox="0 0 24 24" 
+                  fill="none" 
+                  stroke="currentColor" 
+                  strokeWidth="2"
+                >
+                  <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
+              </button>
+            </div>
+            {isTableOpen && (
+              <div className="stats-table-container">
+                <div className="stats-grid-wrapper">
+                {/* Header */}
+                <div className={`stats-grid-header ${user?.role === 'ADMIN' ? 'has-actions' : ''}`}>
+                  <div className="grid-cell header-position">Posición</div>
+                  <div className="grid-cell header-player">Jugadora</div>
+                  <div className="grid-cell header-stats">Estadísticas</div>
+                  <div className="grid-cell header-total">Total</div>
+                  {user?.role === 'ADMIN' && <div className="grid-cell header-actions">Acciones</div>}
+                </div>
+                
+                {/* Body */}
+                <div className="stats-grid-body">
+                  {stats.map((stat, index) => (
+                    <div 
+                      key={stat.userId} 
+                      className={`stats-grid-row ${user?.role === 'ADMIN' ? 'has-actions' : ''} ${index < 3 ? `top-${index + 1}` : ''}`}
+                    >
+                      <div className="grid-cell cell-position">
+                        <div className="position-badge">
+                          {index === 0 && '🥇'}
+                          {index === 1 && '🥈'}
+                          {index === 2 && '🥉'}
+                          {index > 2 && `#${index + 1}`}
+                        </div>
+                      </div>
+                      
+                      <div className="grid-cell cell-player">
+                        <span className="player-name">{stat.displayName}</span>
+                      </div>
+                      
+                      <div className="grid-cell cell-stats">
+                        <div className="stats-cell">
+                          <div className="stat-row">
+                            <span className="stat-icon">⚽</span>
+                            <span className="stat-label">Partidos</span>
+                            <span className="stat-value">{stat.matchesAttended}</span>
+                          </div>
+                          <div className="stat-row">
+                            <span className="stat-icon">🏃</span>
+                            <span className="stat-label">Entrenamientos</span>
+                            <span className="stat-value">{stat.trainingsAttended}</span>
+                          </div>
+                          <div className="stat-row figure-row">
+                            <span className="stat-icon">⭐</span>
+                            <span className="stat-label">Figuras</span>
+                            <span className="stat-value">{stat.figureOfTheMatch || 0}</span>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div className="grid-cell cell-total">
+                        <div className="stat-total">
+                          {stat.totalAttended + (stat.figureOfTheMatch || 0)}
+                        </div>
+                      </div>
+                      
+                      {user?.role === 'ADMIN' && (
+                        <div className="grid-cell cell-actions">
+                          <button
+                            onClick={() => handleEditPlayer(stat)}
+                            className="btn-icon-edit"
+                            data-tooltip-id="edit-stats-tooltip"
+                            data-tooltip-content="Editar estadísticas"
+                          >
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                            </svg>
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                </div>
+              </div>
+            )}
           </div>
         </>
       )}
@@ -377,8 +469,38 @@ const Statistics = () => {
               </div>
             </div>
 
+            <div className="stat-edit-group">
+              <label>⭐ Figuras del Partido:</label>
+              <div className="stat-input-group">
+                <button 
+                  onClick={() => handleDecrement('figureOfTheMatch')}
+                  className="btn-counter"
+                  disabled={saving}
+                >
+                  -
+                </button>
+                <input
+                  type="number"
+                  value={editFormData.figureOfTheMatch}
+                  onChange={(e) => setEditFormData(prev => ({
+                    ...prev,
+                    figureOfTheMatch: Math.max(0, parseInt(e.target.value) || 0)
+                  }))}
+                  min="0"
+                  disabled={saving}
+                />
+                <button 
+                  onClick={() => handleIncrement('figureOfTheMatch')}
+                  className="btn-counter"
+                  disabled={saving}
+                >
+                  +
+                </button>
+              </div>
+            </div>
+
             <div className="total-preview">
-              <strong>Total:</strong> {editFormData.matchesAttended + editFormData.trainingsAttended}
+              <strong>Total:</strong> {editFormData.matchesAttended + editFormData.trainingsAttended + editFormData.figureOfTheMatch}
             </div>
 
             <div className="modal-actions">
@@ -394,7 +516,7 @@ const Statistics = () => {
                 className="btn-primary"
                 disabled={saving}
               >
-                {saving ? 'Guardando...' : '💾 Guardar Cambios'}
+                {saving ? 'Guardando...' : 'Guardar Cambios'}
               </button>
             </div>
           </div>
