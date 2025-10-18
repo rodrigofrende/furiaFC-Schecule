@@ -240,7 +240,7 @@ export const cleanupDuplicateStats = async (): Promise<number> => {
         // Sum up all the stats
         let totalMatches = 0;
         let totalTrainings = 0;
-        let latestUpdate = null;
+        let latestUpdate: any = null;
         
         statsDocs.forEach(({ data }) => {
           totalMatches += data.matchesAttended || 0;
