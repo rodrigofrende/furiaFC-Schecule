@@ -1,2 +1,2 @@
-export const MASTER_PASSWORD = 'Furia2026!';
+export const MASTER_PASSWORD = import.meta.env.VITE_MASTER_PASSWORD || 'default-password';
 
