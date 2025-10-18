@@ -849,19 +849,23 @@ div[role="tooltip"] {
 }
 
 @media (max-width: 768px) {
+  .home-container {
+    padding: 0 10px;
+  }
+  
   .events-list {
     grid-template-columns: 1fr;
-    gap: 16px;
-    padding: 16px 0;
+    gap: 12px;
+    padding: 12px 0;
   }
   
   .event-card {
-    padding: 20px;
-    margin: 0 4px;
+    padding: 16px;
+    margin: 0;
   }
   
   .event-card h3 {
-    font-size: 1.15rem;
+    font-size: 1.1rem;
   }
   
   .event-countdown {
@@ -870,64 +874,141 @@ div[role="tooltip"] {
   }
   
   .event-location {
-    padding: 10px 14px;
+    padding: 8px 12px;
   }
   
   .event-description {
-    padding: 10px;
+    padding: 8px;
+    font-size: 0.9rem;
+  }
+  
+  .event-header {
+    margin-bottom: 8px;
+  }
+  
+  .event-content {
+    gap: 10px;
+  }
+  
+  .event-status-row {
+    gap: 8px;
+    margin-top: 10px;
+  }
+  
+  /* Participantes en tablet */
+  .participants-list {
+    gap: 16px;
+  }
+  
+  .participant-item {
+    padding: 12px;
   }
 }
 
 @media (max-width: 480px) {
   .home-container {
-    padding: 0 8px;
+    padding: 0 6px;
+  }
+  
+  .home-container h1 {
+    font-size: 1.6rem;
+    margin-bottom: 16px;
+  }
+  
+  .events-list {
+    gap: 10px;
+    padding: 10px 0;
   }
   
   .event-card {
-    padding: 16px;
-    margin: 0 2px;
+    padding: 14px;
+    margin: 0;
   }
   
   .event-card h3 {
-    font-size: 1.1rem;
+    font-size: 1.05rem;
     gap: 6px;
+    line-height: 1.3;
   }
   
   .match-vs {
-    font-size: 0.95rem;
+    font-size: 0.9rem;
     padding: 0 2px;
   }
   
   .event-type {
-    font-size: 0.8rem;
+    font-size: 0.75rem;
+    letter-spacing: 0.3px;
   }
   
   .event-countdown {
     font-size: 0.65rem;
-    padding: 3px 7px;
+    padding: 3px 6px;
   }
   
   .event-date {
-    font-size: 0.9rem;
+    font-size: 0.85rem;
+  }
+  
+  .event-location {
+    padding: 6px 10px;
   }
   
   .location-text {
-    font-size: 0.9rem;
+    font-size: 0.85rem;
+  }
+  
+  .event-description {
+    padding: 6px;
+    font-size: 0.85rem;
   }
   
   .event-status-row {
     flex-direction: row;
-    gap: 8px;
+    gap: 6px;
     align-items: flex-start;
+    margin-top: 8px;
   }
   
   .event-actions {
     flex-direction: column;
-    gap: 8px;
+    gap: 6px;
+    margin-top: 10px;
+  }
+  
+  .event-actions button {
+    padding: 10px 14px;
+    font-size: 0.9rem;
+  }
+  
+  /* Status badges más compactos */
+  .status-badge {
+    padding: 6px 12px;
+    font-size: 0.75rem;
+    gap: 4px;
+  }
+  
+  .event-votes-counter .votes-text {
+    font-size: 0.75rem;
+    padding: 4px 8px;
+  }
+  
+  /* Participantes más compactos */
+  .participants-container {
+    max-height: 500px;
+  }
+  
+  .participants-list {
+    gap: 14px;
+  }
+  
+  .participant-group {
+    gap: 6px;
   }
   
   .participant-item {
-    padding: 12px;
+    padding: 10px;
+    gap: 10px;
   }
   
   .participant-name {
@@ -941,6 +1022,7 @@ div[role="tooltip"] {
   .group-title {
     font-size: 0.9rem;
     padding: 6px 10px;
+    margin-bottom: 4px;
   }
   
   .participant-icons {
