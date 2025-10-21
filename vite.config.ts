@@ -5,8 +5,9 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
   build: {
-    // Enable minification (esbuild es más rápido y compatible)
-    minify: 'esbuild',
+    // Rolldown-vite usa su propio minificador integrado en Rust (más rápido)
+    // No especificamos minify para usar el default de rolldown
+    
     // Enable code splitting
     rollupOptions: {
       output: {
@@ -27,9 +28,5 @@ export default defineConfig({
     chunkSizeWarningLimit: 1000,
     // Disable source maps for smaller builds
     sourcemap: false,
-  },
-  // Optimize dependencies
-  optimizeDeps: {
-    include: ['react', 'react-dom', 'react-router-dom'],
   },
 })
