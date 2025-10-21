@@ -68,7 +68,7 @@
 .section-header:hover {
   border-color: rgba(30, 64, 175, 0.3);
   box-shadow: 0 6px 24px rgba(30, 64, 175, 0.18);
-  transform: translateX(4px);
+  /* transform: translateX(4px); - Removido para evitar layout shift */
 }
 
 .section-header:active {
@@ -104,7 +104,7 @@
 .chevron-button:hover {
   background: linear-gradient(135deg, #1976d2 0%, var(--color-furia-blue) 100%);
   box-shadow: 0 4px 12px rgba(30, 64, 175, 0.4);
-  transform: scale(1.05);
+  /* transform: scale(1.05); - Removido para evitar layout shift */
 }
 
 .chevron-button:active {
@@ -137,14 +137,16 @@
 
 .goals-section:hover {
   box-shadow: var(--shadow-lg);
-  transform: translateY(-2px);
+  /* transform: translateY(-2px); - Removido para evitar layout shift */
 }
 
 .goals-table-container {
   margin-top: var(--space-md);
-  overflow: hidden; /* Evitar scroll doble */
+  overflow: auto; /* Permitir scroll para sticky header */
+  max-height: calc(100vh - 250px); /* Altura máxima para activar scroll */
   border-radius: var(--radius-md);
   background: var(--color-white);
+  position: relative; /* Necesario para sticky positioning */
 }
 
 .goals-grid-wrapper {
@@ -164,6 +166,10 @@
   text-transform: uppercase;
   letter-spacing: 0.5px;
   box-shadow: 0 2px 8px rgba(30, 64, 175, 0.2);
+  /* Sticky header */
+  position: sticky;
+  top: 0;
+  z-index: 100;
 }
 
 .goals-grid-body {
@@ -184,8 +190,8 @@
 
 .goals-grid-row:hover {
   background: linear-gradient(90deg, rgba(30, 64, 175, 0.03) 0%, rgba(30, 64, 175, 0.05) 100%);
-  transform: translateX(4px);
   box-shadow: inset 4px 0 0 var(--color-furia-blue);
+  /* transform: translateX(4px); - Removido para evitar layout shift */
 }
 
 .goals-grid-row:last-child {
@@ -306,7 +312,7 @@
 }
 
 .goals-grid-row:hover .stat-total {
-  transform: scale(1.05);
+  /* transform: scale(1.05); - Removido para evitar layout shift */
   box-shadow: 0 6px 16px rgba(30, 64, 175, 0.4);
 }
 
@@ -439,8 +445,10 @@
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1); /* Bordes sutiles */
   line-height: 1.3;
   height: 50px;
-  position: relative; /* Necesario para z-index */
-  z-index: 9; /* Menor que el header sticky pero mayor que celdas normales */
+  /* Sticky header vertical */
+  position: sticky;
+  top: 0;
+  z-index: 9;
 }
 
 .mobile-compact-table thead th:first-child {
@@ -448,8 +456,9 @@
   padding-left: 12px;
   border-radius: var(--radius-sm) 0 0 0;
   position: sticky;
-  left: 0;
-  z-index: 20; /* El más alto de todos - header sticky */
+  top: 0; /* Sticky vertical */
+  left: 0; /* Sticky horizontal */
+  z-index: 20; /* El más alto de todos - header sticky en ambas direcciones */
   width: 130px; /* Ancho fijo para la columna de nombres */
   min-width: 130px;
   max-width: 130px;
@@ -643,6 +652,8 @@
     display: block;
     margin: 0;
     padding: 0;
+    max-height: calc(100vh - 200px); /* Altura máxima para activar scroll vertical */
+    overflow-y: auto; /* Scroll vertical */
   }
 
   .mobile-table-scroll-hint {
@@ -670,7 +681,7 @@
 
   .mobile-stat-card:hover {
     box-shadow: 0 4px 12px rgba(30, 64, 175, 0.2);
-    transform: translateY(-2px);
+    /* transform: translateY(-2px); - Removido para evitar layout shift */
   }
 
   .mobile-stat-card.top-1 {

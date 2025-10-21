@@ -1,4 +1,4 @@
-import { collection, getDocs, doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, getDocs, doc, getDoc, updateDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../config/firebase';
 
 /**
@@ -145,11 +145,15 @@ export const reprocessAllMatchResults = async () => {
     console.log('\n\n💾 Updating stats in Firestore...\n');
     
     let updatedCount = 0;
+    let createdCount = 0;
+    
     for (const [email, counters] of statsCounters) {
       const statsRef = doc(db, 'stats', email);
       const statsDoc = await getDoc(statsRef);
+      const user = Array.from(usersMap.values()).find(u => u.email === email);
       
       if (statsDoc.exists()) {
+        // Documento existe - actualizar
         await updateDoc(statsRef, {
           goals: counters.goals,
           assists: counters.assists,
@@ -159,16 +163,33 @@ export const reprocessAllMatchResults = async () => {
           lastUpdated: serverTimestamp()
         });
         
-        const user = Array.from(usersMap.values()).find(u => u.email === email);
         console.log(`✅ Updated stats for ${user?.alias || email}:`, counters);
         updatedCount++;
       } else {
-        console.warn(`⚠️ Stats document not found for ${email}`);
+        // Documento no existe - crear nuevo
+        await setDoc(statsRef, {
+          goals: counters.goals,
+          assists: counters.assists,
+          yellowCards: counters.yellowCards,
+          redCards: counters.redCards,
+          figureOfTheMatch: counters.figureOfTheMatch,
+          matchesAttended: 0,
+          trainingsAttended: 0,
+          totalAttended: 0,
+          lastUpdated: serverTimestamp()
+        });
+        
+        console.log(`🆕 Created stats document for ${user?.alias || email}:`, counters);
+        createdCount++;
+        updatedCount++;
       }
     }
     
     console.log(`\n\n🎉 REPROCESSING COMPLETE!`);
     console.log(`📊 Updated ${updatedCount} player stats`);
+    if (createdCount > 0) {
+      console.log(`🆕 Created ${createdCount} new stats documents`);
+    }
     console.log(`\n💡 Go to Statistics page to see the updated data!`);
     
     return {

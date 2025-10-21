@@ -90,6 +90,41 @@
   transform: none;
 }
 
+/* Success button - Green theme */
+.btn-success {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: var(--color-white);
+  border: 2px solid #10b981;
+  padding: var(--space-sm) var(--space-lg);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  font-family: var(--font-heading);
+  cursor: pointer;
+  transition: all var(--transition-base);
+  margin-top: var(--space-md);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-xs);
+}
+
+.btn-success:hover:not(:disabled) {
+  background: linear-gradient(135deg, #059669 0%, #047857 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 15px rgba(16, 185, 129, 0.3);
+}
+
+.btn-success:disabled {
+  background: var(--color-gray-light);
+  border-color: var(--color-gray-light);
+  cursor: not-allowed;
+  transform: none;
+  opacity: 0.6;
+}
+
 /* Estilos para el modal de confirmación */
 .delete-confirmation {
   padding: 20px;

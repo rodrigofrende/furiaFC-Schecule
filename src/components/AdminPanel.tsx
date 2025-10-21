@@ -6,6 +6,7 @@ import Modal from './Modal';
 import '../styles/AdminPanel.css';
 import type { UserRole } from '../types';
 import { createTestMatches } from '../utils/createTestMatches';
+import { reprocessAllMatchResults } from '../utils/reprocessMatchResults';
 
 interface UserData {
   id: string;
@@ -33,6 +34,7 @@ const AdminPanel = () => {
   const [resettingStats, setResettingStats] = useState(false);
   const [creatingTestMatches, setCreatingTestMatches] = useState(false);
   const [deletingHistory, setDeletingHistory] = useState(false);
+  const [reprocessingStats, setReprocessingStats] = useState(false);
 
   // Solo mostrar para administradores
   if (user?.role !== 'ADMIN') {
@@ -298,6 +300,61 @@ const AdminPanel = () => {
     }
   };
 
+  const handleReprocessStats = async () => {
+    const confirmation = confirm(
+      '🔄 ¿Deseas reprocesar las estadísticas de todos los partidos?\n\n' +
+      'Este proceso:\n' +
+      '• Recalculará todas las estadísticas desde cero\n' +
+      '• Corregirá cualquier error en goles, asistencias, tarjetas, etc.\n' +
+      '• Puede tardar unos segundos\n\n' +
+      '✅ Esta acción es SEGURA y no borra datos\n\n' +
+      '💡 IMPORTANTE: Abre la consola (F12) para ver logs detallados\n\n' +
+      '¿Deseas continuar?'
+    );
+
+    if (!confirmation) {
+      return;
+    }
+
+    console.clear(); // Limpiar consola para mejor visualización
+    console.log('%c🔄 REPROCESANDO ESTADÍSTICAS', 'color: #10b981; font-size: 20px; font-weight: bold');
+    console.log('%cAbre esta consola para ver el progreso...', 'color: #666; font-size: 14px');
+    console.log('─'.repeat(60));
+
+    setReprocessingStats(true);
+    try {
+      console.time('⏱️ Tiempo total de reprocesamiento');
+      const result = await reprocessAllMatchResults();
+      console.timeEnd('⏱️ Tiempo total de reprocesamiento');
+      
+      console.log('─'.repeat(60));
+      
+      if (result.success) {
+        console.log('%c✅ ÉXITO', 'color: #10b981; font-size: 16px; font-weight: bold');
+        console.log('Jugadoras actualizadas:', result.updatedCount);
+        console.log('Detalles:', result.stats);
+        
+        alert(
+          `✅ ¡Estadísticas reprocesadas exitosamente!\n\n` +
+          `📊 ${result.updatedCount} jugadoras actualizadas\n\n` +
+          `Revisa la consola (F12) para ver los detalles completos.\n\n` +
+          `Ve a la página de Estadísticas para verificar los datos.`
+        );
+      } else {
+        console.error('%c❌ ERROR', 'color: #ef4444; font-size: 16px; font-weight: bold');
+        console.error('Detalles:', result.error);
+        alert('❌ Error al reprocesar las estadísticas\n\nRevisa la consola (F12) para más detalles.');
+      }
+    } catch (error) {
+      console.error('%c❌ ERROR CRÍTICO', 'color: #ef4444; font-size: 16px; font-weight: bold');
+      console.error('Error completo:', error);
+      alert('❌ Error al reprocesar las estadísticas\n\nRevisa la consola (F12) para ver el error completo.');
+    } finally {
+      setReprocessingStats(false);
+      console.log('─'.repeat(60));
+    }
+  };
+
   const handleDeleteMatchHistory = async () => {
     const confirmation = confirm(
       '🚨 ¿Estás seguro de que quieres ELIMINAR TODO EL HISTORIAL de partidos?\n\n' +
@@ -498,6 +555,15 @@ const AdminPanel = () => {
           <p>Herramientas para administrar el historial de partidos.</p>
           
           <div className="stats-admin-buttons">
+            <button 
+              onClick={handleReprocessStats}
+              className="btn-success"
+              disabled={reprocessingStats}
+              title="Reprocesar todas las estadísticas desde los partidos guardados"
+            >
+              {reprocessingStats ? 'Reprocesando...' : '🔄 Reprocesar Estadísticas'}
+            </button>
+
             <button 
               onClick={handleCreateTestMatches}
               className="btn-primary"
