@@ -1,6 +1,11 @@
+.home-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: var(--space-lg);
+}
+
 .home-container h1 {
   margin-bottom: 30px;
-  color: #333;
 }
 
 .no-events {
@@ -907,13 +912,9 @@ div[role="tooltip"] {
 
 @media (max-width: 480px) {
   .home-container {
-    padding: 0 6px;
+    padding: var(--space-sm);
   }
   
-  .home-container h1 {
-    font-size: 1.6rem;
-    margin-bottom: 16px;
-  }
   
   .events-list {
     gap: 10px;

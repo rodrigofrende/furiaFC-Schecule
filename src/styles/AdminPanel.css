@@ -1,17 +1,11 @@
 .admin-panel {
-  padding: var(--space-xl);
   max-width: 1000px;
   margin: 0 auto;
+  padding: var(--space-lg);
 }
 
-.admin-panel h2 {
-  color: var(--color-furia-white);
-  text-align: center;
-  font-size: var(--text-4xl);
-  font-family: var(--font-display);
-  text-transform: uppercase;
-  letter-spacing: 2px;
-  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
+.admin-panel h1 {
+  margin-bottom: 30px;
 }
 
 .admin-actions {
@@ -34,7 +28,7 @@
   border: 2px solid var(--color-gray-lighter);
 }
 
-.action-card h3 {
+.action-card h2 {
   color: var(--color-furia-black);
   margin-bottom: var(--space-md);
   font-size: var(--text-xl);
@@ -269,7 +263,7 @@
   gap: var(--space-md);
 }
 
-.section-header h3 {
+.section-header h2 {
   color: var(--color-furia-black);
   font-size: var(--text-2xl);
   font-family: var(--font-display);

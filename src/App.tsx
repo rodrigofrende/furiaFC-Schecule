@@ -1,14 +1,17 @@
+import { lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
-import Login from './pages/Login';
-import Home from './pages/Home';
-import Statistics from './pages/Statistics';
-import Goals from './pages/Goals';
-import MatchHistory from './pages/MatchHistory';
-import Admin from './pages/Admin';
-import Header from './components/Header';
-import Navigation from './components/Navigation';
 import './App.css';
+
+// Lazy load pages for better performance
+const Login = lazy(() => import('./pages/Login'));
+const Home = lazy(() => import('./pages/Home'));
+const Statistics = lazy(() => import('./pages/Statistics'));
+const MatchHistory = lazy(() => import('./pages/MatchHistory'));
+const Fixture = lazy(() => import('./pages/Fixture'));
+const Admin = lazy(() => import('./pages/Admin'));
+const Header = lazy(() => import('./components/Header'));
+const Navigation = lazy(() => import('./components/Navigation'));
 
 const PrivateRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, loading } = useAuth();
@@ -30,36 +33,52 @@ const PublicRoute = ({ children }: { children: React.ReactNode }) => {
   return !user ? <>{children}</> : <Navigate to="/" />;
 };
 
+const LoadingFallback = () => (
+  <div className="loading" style={{ 
+    display: 'flex', 
+    justifyContent: 'center', 
+    alignItems: 'center', 
+    height: '100vh',
+    fontSize: '1.2rem'
+  }}>
+    Cargando...
+  </div>
+);
+
 const AppContent = () => {
   return (
     <Router>
-      <Routes>
-        <Route path="/login" element={
-          <PublicRoute>
-            <Login />
-          </PublicRoute>
-        } />
-        <Route path="*" element={
-          <PrivateRoute>
-            <>
-              <Header />
-              <div className="app-container">
-                <Navigation />
-                <main className="main-content">
-                  <Routes>
-                    <Route path="/" element={<Home />} />
-                    <Route path="/statistics" element={<Statistics />} />
-                    <Route path="/goals" element={<Goals />} />
-                    <Route path="/history" element={<MatchHistory />} />
-                    <Route path="/admin" element={<Admin />} />
-                    <Route path="*" element={<Navigate to="/" />} />
-                  </Routes>
-                </main>
-              </div>
-            </>
-          </PrivateRoute>
-        } />
-      </Routes>
+      <Suspense fallback={<LoadingFallback />}>
+        <Routes>
+          <Route path="/login" element={
+            <PublicRoute>
+              <Login />
+            </PublicRoute>
+          } />
+          <Route path="*" element={
+            <PrivateRoute>
+              <>
+                <Header />
+                <div className="app-container">
+                  <Navigation />
+                  <main className="main-content">
+                    <Suspense fallback={<div className="loading">Cargando página...</div>}>
+                      <Routes>
+                        <Route path="/" element={<Home />} />
+                        <Route path="/statistics" element={<Statistics />} />
+                        <Route path="/history" element={<MatchHistory />} />
+                        <Route path="/fixture" element={<Fixture />} />
+                        <Route path="/admin" element={<Admin />} />
+                        <Route path="*" element={<Navigate to="/" />} />
+                      </Routes>
+                    </Suspense>
+                  </main>
+                </div>
+              </>
+            </PrivateRoute>
+          } />
+        </Routes>
+      </Suspense>
     </Router>
   );
 };

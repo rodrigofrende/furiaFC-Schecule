@@ -70,11 +70,14 @@ export interface AttendanceStats {
 export interface PlayerStats {
   userId: string;
   displayName: string;
+  position?: PlayerPosition; // Player position
   matchesAttended: number;
   trainingsAttended: number;
   totalAttended: number;
   goals?: number;
   assists?: number;
+  yellowCards?: number; // Number of yellow cards received
+  redCards?: number; // Number of red cards received
   figureOfTheMatch?: number; // Times selected as figure of the match
   lastUpdated: Date;
 }
@@ -89,6 +92,16 @@ export interface Goal {
   createdAt: Date;
 }
 
+export type CardType = 'yellow' | 'red';
+
+export interface Card {
+  id: string;
+  playerId: string;
+  playerName: string;
+  cardType: CardType; // 'yellow' or 'red'
+  createdAt: Date;
+}
+
 export interface MatchResult {
   id: string;
   eventId: string; // Reference to the archived event
@@ -96,6 +109,7 @@ export interface MatchResult {
   furiaGoals: number;
   rivalGoals: number;
   goals: Goal[]; // List of goals scored by Furia players
+  cards?: Card[]; // List of cards received by Furia players
   figureOfTheMatchId?: string; // Player ID of the figure of the match
   figureOfTheMatchName?: string; // Player name of the figure of the match
   date: Date;

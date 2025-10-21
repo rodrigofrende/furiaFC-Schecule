@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback, memo } from 'react';
 import { collection, getDocs, query, where, Timestamp, doc, setDoc, getDoc, serverTimestamp, updateDoc, orderBy } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { useAuth } from '../context/AuthContext';
-import { type MatchResult, type Goal, type User, type Rival } from '../types';
+import { type MatchResult, type Goal, type Card, type CardType, type User, type Rival } from '../types';
 import Modal from '../components/Modal';
 import '../styles/MatchHistory.css';
 
@@ -17,7 +17,7 @@ interface ArchivedMatch {
   result?: MatchResult;
 }
 
-const MatchHistory = () => {
+const MatchHistory = memo(() => {
   const { user } = useAuth();
   const [matches, setMatches] = useState<ArchivedMatch[]>([]);
   const [loading, setLoading] = useState(true);
@@ -39,6 +39,11 @@ const MatchHistory = () => {
     assistPlayerId?: string;
     assistPlayerName?: string;
   }>>([]);
+  const [cards, setCards] = useState<Array<{
+    playerId: string;
+    playerName: string;
+    cardType: CardType;
+  }>>([]);
   const [figureOfTheMatchId, setFigureOfTheMatchId] = useState<string>('');
   const [players, setPlayers] = useState<User[]>([]);
   const [rivals, setRivals] = useState<Rival[]>([]);
@@ -53,7 +58,7 @@ const MatchHistory = () => {
     loadRivals();
   }, []);
 
-  const loadPlayers = async () => {
+  const loadPlayers = useCallback(async () => {
     try {
       const usersRef = collection(db, 'users');
       const usersQuery = query(usersRef, where('role', '==', 'PLAYER'));
@@ -76,9 +81,9 @@ const MatchHistory = () => {
     } catch (error) {
       console.error('Error loading players:', error);
     }
-  };
+  }, []);
 
-  const loadRivals = async () => {
+  const loadRivals = useCallback(async () => {
     try {
       const rivalsRef = collection(db, 'rivals');
       const rivalsQuery = query(rivalsRef, orderBy('name', 'asc'));
@@ -100,11 +105,20 @@ const MatchHistory = () => {
     } catch (error) {
       console.error('Error loading rivals:', error);
     }
-  };
+  }, []);
 
-  const handleCreateNewRival = async () => {
+  const handleCreateNewRival = useCallback(async () => {
     if (!newRivalName.trim()) {
       alert('⚠️ Por favor ingresa el nombre del rival');
+      return;
+    }
+
+    // Validar que no exista un rival con el mismo nombre (case-insensitive)
+    const normalizedName = newRivalName.trim().toLowerCase();
+    const duplicateRival = rivals.find(r => r.name.toLowerCase() === normalizedName);
+
+    if (duplicateRival) {
+      alert('⚠️ Ya existe un rival con ese nombre. Por favor usá otro nombre.');
       return;
     }
 
@@ -141,9 +155,9 @@ const MatchHistory = () => {
     } finally {
       setSaving(false);
     }
-  };
+  }, [user?.email, rivals, rivalId, rivalName, newRivalName, loadRivals]);
 
-  const handleEditRival = async () => {
+  const handleEditRival = useCallback(async () => {
     if (!newRivalName.trim()) {
       alert('⚠️ Por favor ingresa el nombre del rival');
       return;
@@ -151,6 +165,21 @@ const MatchHistory = () => {
 
     if (!rivalId) {
       alert('⚠️ No hay rival seleccionado');
+      return;
+    }
+
+    // Validar que no exista un rival con el mismo nombre (case-insensitive)
+    const normalizedName = newRivalName.trim().toLowerCase();
+    const duplicateRival = rivals.find(r => {
+      // Excluir el rival actual de la búsqueda
+      if (r.id === rivalId) {
+        return false;
+      }
+      return r.name.toLowerCase() === normalizedName;
+    });
+
+    if (duplicateRival) {
+      alert('⚠️ Ya existe un rival con ese nombre. Por favor usá otro nombre.');
       return;
     }
 
@@ -181,9 +210,9 @@ const MatchHistory = () => {
     } finally {
       setSaving(false);
     }
-  };
+  }, [rivalId, rivals, newRivalName, rivalName, loadRivals]);
 
-  const loadMatches = async () => {
+  const loadMatches = useCallback(async () => {
     try {
       // Get archived events of type MATCH
       const eventsRef = collection(db, 'events_archive');
@@ -225,6 +254,10 @@ const MatchHistory = () => {
               ...g,
               createdAt: g.createdAt instanceof Timestamp ? g.createdAt.toDate() : new Date(g.createdAt)
             })),
+            cards: resultData.cards ? resultData.cards.map((c: any) => ({
+              ...c,
+              createdAt: c.createdAt instanceof Timestamp ? c.createdAt.toDate() : new Date(c.createdAt)
+            })) : [],
             figureOfTheMatchId: resultData.figureOfTheMatchId || undefined,
             figureOfTheMatchName: resultData.figureOfTheMatchName || undefined,
             date: resultData.date instanceof Timestamp ? resultData.date.toDate() : new Date(resultData.date),
@@ -255,9 +288,9 @@ const MatchHistory = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const handleEditResult = (match: ArchivedMatch) => {
+  const handleEditResult = useCallback((match: ArchivedMatch) => {
     setEditingMatch(match);
     
     if (match.result) {
@@ -272,6 +305,11 @@ const MatchHistory = () => {
         assistPlayerId: g.assistPlayerId,
         assistPlayerName: g.assistPlayerName
       })));
+      setCards(match.result.cards ? match.result.cards.map(c => ({
+        playerId: c.playerId,
+        playerName: c.playerName,
+        cardType: c.cardType
+      })) : []);
     } else {
       // Use rivalId and rivalName from match
       setRivalId(match.rivalId || '');
@@ -280,25 +318,26 @@ const MatchHistory = () => {
       setRivalGoals(0);
       setFigureOfTheMatchId('');
       setGoals([]);
+      setCards([]);
     }
     
     setShowResultModal(true);
-  };
+  }, [players]);
 
-  const handleAddGoal = () => {
+  const handleAddGoal = useCallback(() => {
     if (players.length === 0) return;
     
     setGoals([...goals, {
       playerId: players[0].id,
       playerName: players[0].displayName
     }]);
-  };
+  }, [players, goals]);
 
-  const handleRemoveGoal = (index: number) => {
+  const handleRemoveGoal = useCallback((index: number) => {
     setGoals(goals.filter((_, i) => i !== index));
-  };
+  }, [goals]);
 
-  const handleGoalChange = (index: number, field: 'playerId' | 'assistPlayerId', value: string) => {
+  const handleGoalChange = useCallback((index: number, field: 'playerId' | 'assistPlayerId', value: string) => {
     const newGoals = [...goals];
     if (field === 'playerId') {
       const player = players.find(p => p.id === value);
@@ -325,9 +364,37 @@ const MatchHistory = () => {
       }
     }
     setGoals(newGoals);
-  };
+  }, [players, goals]);
 
-  const handleSaveResult = async () => {
+  const handleAddCard = useCallback((cardType: CardType) => {
+    if (players.length === 0) return;
+    
+    setCards([...cards, {
+      playerId: players[0].id,
+      playerName: players[0].displayName,
+      cardType
+    }]);
+  }, [players, cards]);
+
+  const handleRemoveCard = useCallback((index: number) => {
+    setCards(cards.filter((_, i) => i !== index));
+  }, [cards]);
+
+  const handleCardChange = useCallback((index: number, field: 'playerId' | 'cardType', value: string) => {
+    const newCards = [...cards];
+    if (field === 'playerId') {
+      const player = players.find(p => p.id === value);
+      if (player) {
+        newCards[index].playerId = player.id;
+        newCards[index].playerName = player.displayName;
+      }
+    } else if (field === 'cardType') {
+      newCards[index].cardType = value as CardType;
+    }
+    setCards(newCards);
+  }, [players, cards]);
+
+  const handleSaveResult = useCallback(async () => {
     if (!editingMatch || !rivalId) {
       alert('⚠️ Por favor selecciona un rival');
       return;
@@ -367,6 +434,14 @@ const MatchHistory = () => {
         return goal;
       });
 
+      const cardsWithIds: Card[] = cards.map((c, index) => ({
+        id: `card_${editingMatch.id}_${index}`,
+        playerId: c.playerId,
+        playerName: c.playerName,
+        cardType: c.cardType,
+        createdAt: new Date()
+      }));
+
       // Prepare result data
       const resultData: any = {
         eventId: editingMatch.id,
@@ -375,6 +450,7 @@ const MatchHistory = () => {
         furiaGoals,
         rivalGoals,
         goals: goalsWithIds,
+        cards: cardsWithIds,
         date: editingMatch.date,
         location: editingMatch.location,
         figureOfTheMatchId: figureOfTheMatchId || null,
@@ -400,7 +476,7 @@ const MatchHistory = () => {
         rivalName: selectedRival.name
       });
 
-      // Update goal and assist stats - Calculate difference between new and old goals
+        // Update goal and assist stats - Calculate difference between new and old goals
       if (editingMatch.result) {
         // When editing, we need to calculate the difference
         const oldGoals = editingMatch.result.goals;
@@ -435,15 +511,19 @@ const MatchHistory = () => {
           const diff = newCount - oldCount;
           
           if (diff !== 0) {
-            const statsRef = doc(db, 'stats', playerId);
-            const statsDoc = await getDoc(statsRef);
-            
-            if (statsDoc.exists()) {
-              const currentGoals = statsDoc.data().goals || 0;
-              await updateDoc(statsRef, {
-                goals: Math.max(0, currentGoals + diff),
-                lastUpdated: serverTimestamp()
-              });
+            // Get player email from playerId
+            const player = players.find(p => p.id === playerId);
+            if (player) {
+              const statsRef = doc(db, 'stats', player.email);
+              const statsDoc = await getDoc(statsRef);
+              
+              if (statsDoc.exists()) {
+                const currentGoals = statsDoc.data().goals || 0;
+                await updateDoc(statsRef, {
+                  goals: Math.max(0, currentGoals + diff),
+                  lastUpdated: serverTimestamp()
+                });
+              }
             }
           }
         }
@@ -456,43 +536,54 @@ const MatchHistory = () => {
           const diff = newCount - oldCount;
           
           if (diff !== 0) {
-            const statsRef = doc(db, 'stats', playerId);
-            const statsDoc = await getDoc(statsRef);
-            
-            if (statsDoc.exists()) {
-              const currentAssists = statsDoc.data().assists || 0;
-              await updateDoc(statsRef, {
-                assists: Math.max(0, currentAssists + diff),
-                lastUpdated: serverTimestamp()
-              });
+            // Get player email from playerId
+            const player = players.find(p => p.id === playerId);
+            if (player) {
+              const statsRef = doc(db, 'stats', player.email);
+              const statsDoc = await getDoc(statsRef);
+              
+              if (statsDoc.exists()) {
+                const currentAssists = statsDoc.data().assists || 0;
+                await updateDoc(statsRef, {
+                  assists: Math.max(0, currentAssists + diff),
+                  lastUpdated: serverTimestamp()
+                });
+              }
             }
           }
         }
       } else {
         // Creating new result - just add all goals and assists
         for (const goal of goalsWithIds) {
-          const statsRef = doc(db, 'stats', goal.playerId);
-          const statsDoc = await getDoc(statsRef);
-          
-          if (statsDoc.exists()) {
-            const currentGoals = statsDoc.data().goals || 0;
-            await updateDoc(statsRef, {
-              goals: currentGoals + 1,
-              lastUpdated: serverTimestamp()
-            });
+          // Get player email from playerId
+          const player = players.find(p => p.id === goal.playerId);
+          if (player) {
+            const statsRef = doc(db, 'stats', player.email);
+            const statsDoc = await getDoc(statsRef);
+            
+            if (statsDoc.exists()) {
+              const currentGoals = statsDoc.data().goals || 0;
+              await updateDoc(statsRef, {
+                goals: currentGoals + 1,
+                lastUpdated: serverTimestamp()
+              });
+            }
           }
           
           // Update assist stats if there's an assist
           if (goal.assistPlayerId) {
-            const assistStatsRef = doc(db, 'stats', goal.assistPlayerId);
-            const assistStatsDoc = await getDoc(assistStatsRef);
-            
-            if (assistStatsDoc.exists()) {
-              const currentAssists = assistStatsDoc.data().assists || 0;
-              await updateDoc(assistStatsRef, {
-                assists: currentAssists + 1,
-                lastUpdated: serverTimestamp()
-              });
+            const assistPlayer = players.find(p => p.id === goal.assistPlayerId);
+            if (assistPlayer) {
+              const assistStatsRef = doc(db, 'stats', assistPlayer.email);
+              const assistStatsDoc = await getDoc(assistStatsRef);
+              
+              if (assistStatsDoc.exists()) {
+                const currentAssists = assistStatsDoc.data().assists || 0;
+                await updateDoc(assistStatsRef, {
+                  assists: currentAssists + 1,
+                  lastUpdated: serverTimestamp()
+                });
+              }
             }
           }
         }
@@ -500,35 +591,148 @@ const MatchHistory = () => {
 
       // Update figure of the match stats
       if (figureOfTheMatchId) {
-        const statsRef = doc(db, 'stats', figureOfTheMatchId);
-        const statsDoc = await getDoc(statsRef);
-        
-        if (statsDoc.exists()) {
-          const currentFigures = statsDoc.data().figureOfTheMatch || 0;
-          // Check if this is a new figure or a change
-          const isNewFigure = !editingMatch.result || 
-            editingMatch.result.figureOfTheMatchId !== figureOfTheMatchId;
+        // Get player email from figureOfTheMatchId
+        const figurePlayer = players.find(p => p.id === figureOfTheMatchId);
+        if (figurePlayer) {
+          const statsRef = doc(db, 'stats', figurePlayer.email);
+          const statsDoc = await getDoc(statsRef);
           
-          if (isNewFigure) {
-            // If there was a previous figure, decrement their count
-            if (editingMatch.result?.figureOfTheMatchId && 
-                editingMatch.result.figureOfTheMatchId !== figureOfTheMatchId) {
-              const oldFigureRef = doc(db, 'stats', editingMatch.result.figureOfTheMatchId);
-              const oldFigureDoc = await getDoc(oldFigureRef);
-              if (oldFigureDoc.exists()) {
-                const oldFigureCount = oldFigureDoc.data().figureOfTheMatch || 0;
-                await updateDoc(oldFigureRef, {
-                  figureOfTheMatch: Math.max(0, oldFigureCount - 1),
+          if (statsDoc.exists()) {
+            const currentFigures = statsDoc.data().figureOfTheMatch || 0;
+            // Check if this is a new figure or a change
+            const isNewFigure = !editingMatch.result || 
+              editingMatch.result.figureOfTheMatchId !== figureOfTheMatchId;
+            
+            if (isNewFigure) {
+              // If there was a previous figure, decrement their count
+              const previousFigureId = editingMatch.result?.figureOfTheMatchId;
+              if (previousFigureId && previousFigureId !== figureOfTheMatchId) {
+                const oldFigurePlayer = players.find(p => p.id === previousFigureId);
+                if (oldFigurePlayer) {
+                  const oldFigureRef = doc(db, 'stats', oldFigurePlayer.email);
+                  const oldFigureDoc = await getDoc(oldFigureRef);
+                  if (oldFigureDoc.exists()) {
+                    const oldFigureCount = oldFigureDoc.data().figureOfTheMatch || 0;
+                    await updateDoc(oldFigureRef, {
+                      figureOfTheMatch: Math.max(0, oldFigureCount - 1),
+                      lastUpdated: serverTimestamp()
+                    });
+                  }
+                }
+              }
+              
+              // Increment new figure count
+              await updateDoc(statsRef, {
+                figureOfTheMatch: currentFigures + 1,
+                lastUpdated: serverTimestamp()
+              });
+            }
+          }
+        }
+      }
+
+      // Update card stats
+      if (editingMatch.result) {
+        // When editing, we need to calculate the difference
+        const oldCards = editingMatch.result.cards || [];
+        
+        // Count how many cards each player had before
+        const oldYellowCardCounts = new Map<string, number>();
+        const oldRedCardCounts = new Map<string, number>();
+        
+        oldCards.forEach(c => {
+          if (c.cardType === 'yellow') {
+            oldYellowCardCounts.set(c.playerId, (oldYellowCardCounts.get(c.playerId) || 0) + 1);
+          } else if (c.cardType === 'red') {
+            oldRedCardCounts.set(c.playerId, (oldRedCardCounts.get(c.playerId) || 0) + 1);
+          }
+        });
+        
+        // Count how many cards each player has now
+        const newYellowCardCounts = new Map<string, number>();
+        const newRedCardCounts = new Map<string, number>();
+        
+        cardsWithIds.forEach(c => {
+          if (c.cardType === 'yellow') {
+            newYellowCardCounts.set(c.playerId, (newYellowCardCounts.get(c.playerId) || 0) + 1);
+          } else if (c.cardType === 'red') {
+            newRedCardCounts.set(c.playerId, (newRedCardCounts.get(c.playerId) || 0) + 1);
+          }
+        });
+        
+        // Update yellow card stats based on differences
+        const allYellowPlayerIds = new Set([...oldYellowCardCounts.keys(), ...newYellowCardCounts.keys()]);
+        for (const playerId of allYellowPlayerIds) {
+          const oldCount = oldYellowCardCounts.get(playerId) || 0;
+          const newCount = newYellowCardCounts.get(playerId) || 0;
+          const diff = newCount - oldCount;
+          
+          if (diff !== 0) {
+            // Get player email from playerId
+            const player = players.find(p => p.id === playerId);
+            if (player) {
+              const statsRef = doc(db, 'stats', player.email);
+              const statsDoc = await getDoc(statsRef);
+              
+              if (statsDoc.exists()) {
+                const currentYellowCards = statsDoc.data().yellowCards || 0;
+                await updateDoc(statsRef, {
+                  yellowCards: Math.max(0, currentYellowCards + diff),
                   lastUpdated: serverTimestamp()
                 });
               }
             }
+          }
+        }
+        
+        // Update red card stats based on differences
+        const allRedPlayerIds = new Set([...oldRedCardCounts.keys(), ...newRedCardCounts.keys()]);
+        for (const playerId of allRedPlayerIds) {
+          const oldCount = oldRedCardCounts.get(playerId) || 0;
+          const newCount = newRedCardCounts.get(playerId) || 0;
+          const diff = newCount - oldCount;
+          
+          if (diff !== 0) {
+            // Get player email from playerId
+            const player = players.find(p => p.id === playerId);
+            if (player) {
+              const statsRef = doc(db, 'stats', player.email);
+              const statsDoc = await getDoc(statsRef);
+              
+              if (statsDoc.exists()) {
+                const currentRedCards = statsDoc.data().redCards || 0;
+                await updateDoc(statsRef, {
+                  redCards: Math.max(0, currentRedCards + diff),
+                  lastUpdated: serverTimestamp()
+                });
+              }
+            }
+          }
+        }
+      } else {
+        // Creating new result - just add all cards
+        for (const card of cardsWithIds) {
+          // Get player email from playerId
+          const player = players.find(p => p.id === card.playerId);
+          if (player) {
+            const statsRef = doc(db, 'stats', player.email);
+            const statsDoc = await getDoc(statsRef);
             
-            // Increment new figure count
-            await updateDoc(statsRef, {
-              figureOfTheMatch: currentFigures + 1,
-              lastUpdated: serverTimestamp()
-            });
+            if (statsDoc.exists()) {
+              if (card.cardType === 'yellow') {
+                const currentYellowCards = statsDoc.data().yellowCards || 0;
+                await updateDoc(statsRef, {
+                  yellowCards: currentYellowCards + 1,
+                  lastUpdated: serverTimestamp()
+                });
+              } else if (card.cardType === 'red') {
+                const currentRedCards = statsDoc.data().redCards || 0;
+                await updateDoc(statsRef, {
+                  redCards: currentRedCards + 1,
+                  lastUpdated: serverTimestamp()
+                });
+              }
+            }
           }
         }
       }
@@ -563,19 +767,19 @@ const MatchHistory = () => {
     } finally {
       setSaving(false);
     }
-  };
+  }, [editingMatch, rivalId, rivals, furiaGoals, rivalGoals, goals, cards, figureOfTheMatchId, players, loadMatches]);
 
-  const formatDate = (date: Date) => {
+  const formatDate = useCallback((date: Date) => {
     return date.toLocaleDateString('es-AR', {
       weekday: 'long',
       year: 'numeric',
       month: 'long',
       day: 'numeric'
     });
-  };
+  }, []);
 
-  // Filter matches based on selected filters
-  const filteredMatches = matches.filter((match) => {
+  // Filter matches based on selected filters - memoized for better performance
+  const filteredMatches = useMemo(() => matches.filter((match) => {
     // Filter by rival
     if (filterRivalId && match.rivalId !== filterRivalId) {
       return false;
@@ -597,7 +801,7 @@ const MatchHistory = () => {
     }
     
     return true;
-  });
+  }), [matches, filterRivalId, filterResult]);
 
   if (loading) {
     return <div className="loading-history">Cargando historial de partidos...</div>;
@@ -605,7 +809,7 @@ const MatchHistory = () => {
 
   return (
     <div className="match-history-container">
-      <h1>🏆 Historial de Partidos</h1>
+      <h1>Historial de Partidos</h1>
       
       {/* Filters Section */}
       <div className="match-filters">
@@ -707,50 +911,122 @@ const MatchHistory = () => {
                   </div>
                 )}
 
-                {hasResult && (
+{hasResult && (
                   <div className="match-details">
-                    <div className="details-grid">
-                      {/* Figure of the Match - Compact Badge */}
+                    <div className="stats-container">
+                      {/* Figure of the Match */}
                       {match.result!.figureOfTheMatchName && (
-                        <div className="match-figure-compact">
-                          <span className="figure-icon">⭐</span>
-                          <div className="figure-content">
-                            <span className="figure-label">Figura</span>
-                            <span className="figure-name">{match.result!.figureOfTheMatchName}</span>
+                        <div className="stat-card-match stat-figure">
+                          <div className="stat-header">
+                            <span className="stat-icon">⭐</span>
+                            <span className="stat-title">Figura</span>
+                          </div>
+                          <div className="stat-content">
+                            <div className="stat-value">{match.result!.figureOfTheMatchName}</div>
                           </div>
                         </div>
                       )}
 
-                      {/* Goals Section - Compact Grid */}
+                      {/* Goals Section */}
                       {match.result!.goals.length > 0 ? (
-                        <div className="match-goals-compact">
-                          <div className="goals-header-compact">
-                            <span className="goals-icon">⚽</span>
-                            <span className="goals-title-compact">Goles ({match.result!.goals.length})</span>
+                        <div className="stat-card-match stat-goals">
+                          <div className="stat-header">
+                            <span className="stat-icon">⚽</span>
+                            <span className="stat-title">Goles ({match.result!.goals.length})</span>
                           </div>
-                          <div className="goals-grid">
-                            {match.result!.goals.map((goal, index) => (
-                              <div key={goal.id} className="goal-item-compact">
-                                <span className="goal-badge">{index + 1}</span>
-                                <div className="goal-detail">
-                                  <span className="goal-player-name">{goal.playerName}</span>
-                                  {goal.assistPlayerName && (
-                                    <span className="goal-assist-compact">
-                                      <span className="assist-label">Asistencia:</span>
-                                      <span className="assist-name">{goal.assistPlayerName}</span>
-                                    </span>
+                          <div className="stat-content">
+                            {(() => {
+                              const goalsByPlayer = match.result!.goals.reduce((acc, goal) => {
+                                if (!acc[goal.playerId]) {
+                                  acc[goal.playerId] = {
+                                    playerName: goal.playerName,
+                                    count: 0,
+                                    assists: []
+                                  };
+                                }
+                                acc[goal.playerId].count++;
+                                if (goal.assistPlayerName) {
+                                  acc[goal.playerId].assists.push(goal.assistPlayerName);
+                                }
+                                return acc;
+                              }, {} as Record<string, { playerName: string; count: number; assists: string[] }>);
+
+                              return Object.entries(goalsByPlayer).map(([playerId, data]) => (
+                                <div key={playerId} className="stat-item">
+                                  <div className="stat-main">
+                                    <span className="stat-number-match">{data.count}</span>
+                                    <span className="stat-player">{data.playerName}</span>
+                                  </div>
+                                  {data.assists.length > 0 && (
+                                    <div className="stat-assists">
+                                      {data.assists.map((assist, idx) => (
+                                        <span key={idx} className="stat-assist-badge">
+                                          {assist}
+                                        </span>
+                                      ))}
+                                    </div>
                                   )}
                                 </div>
-                              </div>
-                            ))}
+                              ));
+                            })()}
                           </div>
                         </div>
                       ) : match.result!.furiaGoals === 0 ? (
-                        <div className="no-goals-compact">
-                          <span className="no-goals-icon">⚪</span>
-                          <span className="no-goals-text">Sin goles</span>
+                        <div className="stat-card-match stat-goals">
+                          <div className="stat-header">
+                            <span className="stat-icon">⚽</span>
+                            <span className="stat-title">Goles (0)</span>
+                          </div>
+                          <div className="stat-content stat-empty">
+                            Sin goles
+                          </div>
                         </div>
                       ) : null}
+
+                      {/* Cards Section */}
+                      {match.result!.cards && match.result!.cards.length > 0 && (
+                        <div className="stat-card-match stat-cards">
+                          <div className="stat-header">
+                            <span className="stat-icon">📋</span>
+                            <span className="stat-title">Tarjetas ({match.result!.cards.length})</span>
+                          </div>
+                          <div className="stat-content">
+                            {(() => {
+                              const cardsByPlayer = match.result!.cards.reduce((acc, card) => {
+                                if (!acc[card.playerId]) {
+                                  acc[card.playerId] = {
+                                    playerName: card.playerName,
+                                    yellow: 0,
+                                    red: 0
+                                  };
+                                }
+                                if (card.cardType === 'yellow') {
+                                  acc[card.playerId].yellow++;
+                                } else {
+                                  acc[card.playerId].red++;
+                                }
+                                return acc;
+                              }, {} as Record<string, { playerName: string; yellow: number; red: number }>);
+
+                              return Object.entries(cardsByPlayer).map(([playerId, data]) => (
+                                <div key={playerId} className="stat-item">
+                                  <div className="stat-main">
+                                    <div className="stat-card-icons">
+                                      {Array.from({ length: data.yellow }, (_, i) => (
+                                        <span key={`yellow-${i}`} className="card-emoji">🟨</span>
+                                      ))}
+                                      {Array.from({ length: data.red }, (_, i) => (
+                                        <span key={`red-${i}`} className="card-emoji">🟥</span>
+                                      ))}
+                                    </div>
+                                    <span className="stat-player">{data.playerName}</span>
+                                  </div>
+                                </div>
+                              ));
+                            })()}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
@@ -987,6 +1263,71 @@ const MatchHistory = () => {
               </div>
             </div>
 
+            <div className="result-editor-section">
+              <h3>🟨🟥 Tarjetas ({cards.length})</h3>
+              <div className="cards-editor">
+                {cards.length > 0 && (
+                  <>
+                    {cards.map((card, index) => (
+                      <div key={index} className="card-editor-item">
+                        <div className="card-editor-field">
+                          <label>Jugadora</label>
+                          <select
+                            value={card.playerId}
+                            onChange={(e) => handleCardChange(index, 'playerId', e.target.value)}
+                            disabled={saving}
+                          >
+                            {players.map((player) => (
+                              <option key={player.id} value={player.id}>
+                                {player.displayName}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div className="card-editor-field">
+                          <label>Tipo de Tarjeta</label>
+                          <select
+                            value={card.cardType}
+                            onChange={(e) => handleCardChange(index, 'cardType', e.target.value)}
+                            disabled={saving}
+                          >
+                            <option value="yellow">🟨 Amarilla</option>
+                            <option value="red">🟥 Roja</option>
+                          </select>
+                        </div>
+
+                        <button
+                          onClick={() => handleRemoveCard(index)}
+                          className="btn-remove-goal"
+                          disabled={saving}
+                        >
+                          🗑️
+                        </button>
+                      </div>
+                    ))}
+                  </>
+                )}
+                
+                <div className="card-add-buttons">
+                  <button
+                    onClick={() => handleAddCard('yellow')}
+                    className="btn-add-card yellow"
+                    disabled={saving}
+                  >
+                    🟨 Agregar Tarjeta Amarilla
+                  </button>
+                  <button
+                    onClick={() => handleAddCard('red')}
+                    className="btn-add-card red"
+                    disabled={saving}
+                  >
+                    🟥 Agregar Tarjeta Roja
+                  </button>
+                </div>
+              </div>
+            </div>
+
             <div className="modal-actions">
               <button
                 onClick={() => {
@@ -1011,7 +1352,9 @@ const MatchHistory = () => {
       )}
     </div>
   );
-};
+});
+
+MatchHistory.displayName = 'MatchHistory';
 
 export default MatchHistory;
 

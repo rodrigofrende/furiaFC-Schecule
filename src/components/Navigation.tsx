@@ -184,11 +184,11 @@ const Navigation = () => {
           <NavLink to="/history" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>
             🏆 Historial
           </NavLink>
+          <NavLink to="/fixture" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>
+            📅 Fixture
+          </NavLink>
           <NavLink to="/statistics" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>
             📊 Estadísticas
-          </NavLink>
-          <NavLink to="/goals" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>
-            ⚽ Goleadoras
           </NavLink>
           {user?.role === 'ADMIN' && (
             <NavLink to="/admin" className={({ isActive }) => isActive ? 'nav-link active admin-link' : 'nav-link admin-link'}>

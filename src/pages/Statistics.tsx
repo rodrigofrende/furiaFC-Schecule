@@ -1,34 +1,13 @@
-import { useState, useEffect } from 'react';
-import { collection, getDocs, doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { useState, useEffect, useMemo, memo } from 'react';
+import { collection, getDocs } from 'firebase/firestore';
 import { db } from '../config/firebase';
-import { useAuth } from '../context/AuthContext';
 import { type PlayerStats } from '../types';
-import Modal from '../components/Modal';
-import { Tooltip } from 'react-tooltip';
 import '../styles/Statistics.css';
 
-const Statistics = () => {
-  const { user } = useAuth();
+const Statistics = memo(() => {
   const [stats, setStats] = useState<PlayerStats[]>([]);
   const [loading, setLoading] = useState(true);
-  const [totalEvents, setTotalEvents] = useState(0);
-  const [editingPlayer, setEditingPlayer] = useState<PlayerStats | null>(null);
-  const [editFormData, setEditFormData] = useState({
-    matchesAttended: 0,
-    trainingsAttended: 0,
-    figureOfTheMatch: 0
-  });
-  const [saving, setSaving] = useState(false);
-  const [positionStats, setPositionStats] = useState<{
-    position: string;
-    count: number;
-    percentage: number;
-  }[]>([]);
-  
-  // Collapsible sections state
-  const [isPositionsOpen, setIsPositionsOpen] = useState(true);
-  const [isSummaryOpen, setIsSummaryOpen] = useState(true);
-  const [isTableOpen, setIsTableOpen] = useState(true);
+  const [isGoalsOpen, setIsGoalsOpen] = useState(true);
 
   useEffect(() => {
     loadStatistics();
@@ -36,103 +15,74 @@ const Statistics = () => {
 
   const loadStatistics = async () => {
     try {
-      // STEP 1: Get all users from users collection
+      // Get all users from users collection
       const usersRef = collection(db, 'users');
       const usersSnapshot = await getDocs(usersRef);
       
       const usersMap = new Map<string, any>();
       usersSnapshot.forEach((userDoc) => {
         const userData = userDoc.data();
-        if (userData.email) {
-          usersMap.set(userData.email, userData);
-        }
+        // Map by document ID (not email) to match how stats are saved
+        usersMap.set(userDoc.id, userData);
       });
 
-      // STEP 2: Get total events count from archive
-      const archivedEventsRef = collection(db, 'events_archive');
-      const archivedEventsSnapshot = await getDocs(archivedEventsRef);
-      setTotalEvents(archivedEventsSnapshot.size);
-
-      // STEP 3: Get stats from stats collection (manual edits have priority)
+      // Get stats from stats collection
       const statsRef = collection(db, 'stats');
       const statsSnapshot = await getDocs(statsRef);
       
       const statsMap = new Map<string, any>();
       statsSnapshot.forEach((doc) => {
         const data = doc.data();
-        statsMap.set(doc.id, data); // doc.id should be the user email
+        statsMap.set(doc.id, data);
       });
 
-      // STEP 4: Build stats array - use stats collection as source of truth
+      // Build stats array - use email as the key (matching how stats are saved)
       const statsArray: PlayerStats[] = [];
       
-      usersMap.forEach((userData, userEmail) => {
-        // Check if we have stats data for this user
-        const userStats = statsMap.get(userEmail);
+      usersMap.forEach((userData, userId) => {
+        // Skip ADMIN users
+        if (userData.role === 'ADMIN') {
+          return;
+        }
+        
+        const userEmail = userData.email;
+        const userStats = statsMap.get(userEmail); // Use email to lookup stats
         
         if (userStats) {
-          // Use existing stats from stats collection
           statsArray.push({
-            userId: userEmail,
-            displayName: userData.alias || userEmail,
+            userId: userId,
+            displayName: userData.alias || userData.email,
+            position: userData.position,
             matchesAttended: userStats.matchesAttended || 0,
             trainingsAttended: userStats.trainingsAttended || 0,
             totalAttended: userStats.totalAttended || 0,
             goals: userStats.goals || 0,
             assists: userStats.assists || 0,
+            yellowCards: userStats.yellowCards || 0,
+            redCards: userStats.redCards || 0,
             figureOfTheMatch: userStats.figureOfTheMatch || 0,
             lastUpdated: userStats.lastUpdated?.toDate() || new Date()
           });
         } else {
           // No stats yet for this user, initialize with zeros
           statsArray.push({
-            userId: userEmail,
-            displayName: userData.alias || userEmail,
+            userId: userId,
+            displayName: userData.alias || userData.email,
+            position: userData.position,
             matchesAttended: 0,
             trainingsAttended: 0,
             totalAttended: 0,
             goals: 0,
             assists: 0,
+            yellowCards: 0,
+            redCards: 0,
             figureOfTheMatch: 0,
             lastUpdated: new Date()
           });
         }
       });
 
-      // Sort by total points (attended + figureOfTheMatch) descending
-      statsArray.sort((a, b) => {
-        const pointsA = a.totalAttended + (a.figureOfTheMatch || 0);
-        const pointsB = b.totalAttended + (b.figureOfTheMatch || 0);
-        return pointsB - pointsA;
-      });
-
-      console.log(`✅ Loaded statistics for ${statsArray.length} users from stats collection`);
       setStats(statsArray);
-
-      // STEP 5: Calculate position statistics
-      const positionCounts: { [key: string]: number } = {
-        'Arquera': 0,
-        'Defensora': 0,
-        'Mediocampista': 0,
-        'Delantera': 0
-      };
-
-      let totalWithPosition = 0;
-
-      usersMap.forEach((userData) => {
-        if (userData.position && positionCounts.hasOwnProperty(userData.position)) {
-          positionCounts[userData.position]++;
-          totalWithPosition++;
-        }
-      });
-
-      const positionStatsArray = Object.entries(positionCounts).map(([position, count]) => ({
-        position,
-        count,
-        percentage: totalWithPosition > 0 ? (count / totalWithPosition) * 100 : 0
-      }));
-
-      setPositionStats(positionStatsArray);
     } catch (error) {
       console.error('Error loading statistics:', error);
     } finally {
@@ -140,59 +90,17 @@ const Statistics = () => {
     }
   };
 
-  const handleEditPlayer = (playerStat: PlayerStats) => {
-    setEditingPlayer(playerStat);
-    setEditFormData({
-      matchesAttended: playerStat.matchesAttended,
-      trainingsAttended: playerStat.trainingsAttended,
-      figureOfTheMatch: playerStat.figureOfTheMatch || 0
+  // Memoize sorted stats to avoid recalculating on every render
+  const sortedStats = useMemo(() => {
+    return [...stats].sort((a, b) => {
+      const totalA = (a.goals || 0) + (a.assists || 0) + (a.figureOfTheMatch || 0);
+      const totalB = (b.goals || 0) + (b.assists || 0) + (b.figureOfTheMatch || 0);
+      if (totalB !== totalA) return totalB - totalA;
+      if ((b.goals || 0) !== (a.goals || 0)) return (b.goals || 0) - (a.goals || 0);
+      if ((b.assists || 0) !== (a.assists || 0)) return (b.assists || 0) - (a.assists || 0);
+      return a.displayName.localeCompare(b.displayName);
     });
-  };
-
-  const handleSaveEdit = async () => {
-    if (!editingPlayer) return;
-
-    setSaving(true);
-    try {
-      const statsRef = doc(db, 'stats', editingPlayer.userId);
-      const totalAttended = editFormData.matchesAttended + editFormData.trainingsAttended;
-      
-      await setDoc(statsRef, {
-        userId: editingPlayer.userId,
-        displayName: editingPlayer.displayName,
-        matchesAttended: editFormData.matchesAttended,
-        trainingsAttended: editFormData.trainingsAttended,
-        totalAttended,
-        goals: editingPlayer.goals || 0,
-        assists: editingPlayer.assists || 0,
-        figureOfTheMatch: editFormData.figureOfTheMatch,
-        lastUpdated: serverTimestamp()
-      }, { merge: true });
-
-      alert('✅ Estadísticas actualizadas correctamente');
-      setEditingPlayer(null);
-      await loadStatistics(); // Reload stats
-    } catch (error) {
-      console.error('Error updating stats:', error);
-      alert('❌ Error al actualizar las estadísticas');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleIncrement = (field: 'matchesAttended' | 'trainingsAttended' | 'figureOfTheMatch') => {
-    setEditFormData(prev => ({
-      ...prev,
-      [field]: prev[field] + 1
-    }));
-  };
-
-  const handleDecrement = (field: 'matchesAttended' | 'trainingsAttended' | 'figureOfTheMatch') => {
-    setEditFormData(prev => ({
-      ...prev,
-      [field]: Math.max(0, prev[field] - 1) // No permitir negativos
-    }));
-  };
+  }, [stats]);
 
   if (loading) {
     return <div className="loading">Cargando estadísticas...</div>;
@@ -202,19 +110,13 @@ const Statistics = () => {
     <div className="statistics-container">
       <h1>Estadísticas</h1>
 
-      {stats.length === 0 ? (
-        <div className="no-data">
-          <p>Aún no hay estadísticas registradas. Las estadísticas se calculan automáticamente a partir de los eventos archivados.</p>
-        </div>
-      ) : (
-        <>
-          {/* Position Statistics */}
-          <div className="positions-section">
-            <div className="section-header" onClick={() => setIsPositionsOpen(!isPositionsOpen)}>
-              <h2>Distribución de Posiciones</h2>
+      {/* Goals and Assists Section */}
+      <div className="goals-section">
+            <div className="section-header" onClick={() => setIsGoalsOpen(!isGoalsOpen)}>
+              <h2>⚽ Goles, Asistencias y Tarjetas</h2>
               <button className="chevron-button" aria-label="Toggle section">
                 <svg 
-                  className={`chevron-icon ${isPositionsOpen ? 'open' : ''}`}
+                  className={`chevron-icon ${isGoalsOpen ? 'open' : ''}`}
                   width="24" 
                   height="24" 
                   viewBox="0 0 24 24" 
@@ -226,305 +128,210 @@ const Statistics = () => {
                 </svg>
               </button>
             </div>
-            {isPositionsOpen && (
-              <div className="positions-grid">
-                {positionStats.map((stat) => (
-                  <div key={stat.position} className="position-card">
-                    <div className="position-icon">
-                      {stat.position === 'Arquera' && '🧤'}
-                      {stat.position === 'Defensora' && '🛡️'}
-                      {stat.position === 'Mediocampista' && '⚡'}
-                      {stat.position === 'Delantera' && '⚽'}
-                    </div>
-                    <h3 className="position-name">{stat.position}</h3>
-                    <div className="position-stats">
-                      <div className="position-count">{stat.count} jugadora{stat.count !== 1 ? 's' : ''}</div>
-                      <div className="position-percentage">{stat.percentage.toFixed(1)}%</div>
-                    </div>
-                    <div className="position-bar-container">
-                      <div 
-                        className="position-bar" 
-                        style={{ width: `${stat.percentage}%` }}
-                      />
-                    </div>
+            {isGoalsOpen && (
+              <div className="goals-table-container">
+                {/* Desktop Table */}
+                <div className="goals-grid-wrapper">
+                  {/* Header */}
+                  <div className="goals-grid-header">
+                    <div className="grid-cell header-player">Jugadora</div>
+                    <div className="grid-cell header-goals">⚽ Goles</div>
+                    <div className="grid-cell header-assists">🎯 Asistencias</div>
+                    <div className="grid-cell header-figure">⭐ Figura</div>
+                    <div className="grid-cell header-yellow-cards">🟨 Amarillas</div>
+                    <div className="grid-cell header-red-cards">🟥 Rojas</div>
                   </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div className="summary-section">
-            <div className="section-header" onClick={() => setIsSummaryOpen(!isSummaryOpen)}>
-              <h2>Resumen General</h2>
-              <button className="chevron-button" aria-label="Toggle section">
-                <svg 
-                  className={`chevron-icon ${isSummaryOpen ? 'open' : ''}`}
-                  width="24" 
-                  height="24" 
-                  viewBox="0 0 24 24" 
-                  fill="none" 
-                  stroke="currentColor" 
-                  strokeWidth="2"
-                >
-                  <polyline points="6 9 12 15 18 9"></polyline>
-                </svg>
-              </button>
-            </div>
-            {isSummaryOpen && (
-              <div className="stats-summary">
-                <div className="stat-card">
-                  <h3>Jugadoras Registradas</h3>
-                  <p className="stat-number">{stats.length}</p>
-                </div>
-                <div className="stat-card">
-                  <h3>Total Asistencias</h3>
-                  <p className="stat-number">{stats.reduce((sum, s) => sum + s.totalAttended, 0)}</p>
-                </div>
-                <div className="stat-card">
-                  <h3>Total de Eventos</h3>
-                  <p className="stat-number">{totalEvents}</p>
-                </div>
-              </div>
-            )}
-          </div>
-
-          <div className="table-section">
-            <div className="section-header" onClick={() => setIsTableOpen(!isTableOpen)}>
-              <h2>Asistencia</h2>
-              <button className="chevron-button" aria-label="Toggle section">
-                <svg 
-                  className={`chevron-icon ${isTableOpen ? 'open' : ''}`}
-                  width="24" 
-                  height="24" 
-                  viewBox="0 0 24 24" 
-                  fill="none" 
-                  stroke="currentColor" 
-                  strokeWidth="2"
-                >
-                  <polyline points="6 9 12 15 18 9"></polyline>
-                </svg>
-              </button>
-            </div>
-            {isTableOpen && (
-              <div className="stats-table-container">
-                <div className="stats-grid-wrapper">
-                {/* Header */}
-                <div className={`stats-grid-header ${user?.role === 'ADMIN' ? 'has-actions' : ''}`}>
-                  <div className="grid-cell header-position">Posición</div>
-                  <div className="grid-cell header-player">Jugadora</div>
-                  <div className="grid-cell header-stats">Estadísticas</div>
-                  <div className="grid-cell header-total">Total</div>
-                  {user?.role === 'ADMIN' && <div className="grid-cell header-actions">Acciones</div>}
-                </div>
-                
-                {/* Body */}
-                <div className="stats-grid-body">
-                  {stats.map((stat, index) => (
-                    <div 
-                      key={stat.userId} 
-                      className={`stats-grid-row ${user?.role === 'ADMIN' ? 'has-actions' : ''} ${index < 3 ? `top-${index + 1}` : ''}`}
-                    >
-                      <div className="grid-cell cell-position">
-                        <div className="position-badge">
-                          {index === 0 && '🥇'}
-                          {index === 1 && '🥈'}
-                          {index === 2 && '🥉'}
-                          {index > 2 && `#${index + 1}`}
-                        </div>
-                      </div>
-                      
-                      <div className="grid-cell cell-player">
-                        <span className="player-name">{stat.displayName}</span>
-                      </div>
-                      
-                      <div className="grid-cell cell-stats">
-                        <div className="stats-cell">
-                          <div className="stat-row">
-                            <span className="stat-icon">⚽</span>
-                            <span className="stat-label">Partidos</span>
-                            <span className="stat-value">{stat.matchesAttended}</span>
-                          </div>
-                          <div className="stat-row">
-                            <span className="stat-icon">🏃</span>
-                            <span className="stat-label">Entrenamientos</span>
-                            <span className="stat-value">{stat.trainingsAttended}</span>
-                          </div>
-                          <div className="stat-row figure-row">
-                            <span className="stat-icon">⭐</span>
-                            <span className="stat-label">Figuras</span>
-                            <span className="stat-value">{stat.figureOfTheMatch || 0}</span>
-                          </div>
-                        </div>
-                      </div>
-                      
-                      <div className="grid-cell cell-total">
-                        <div className="stat-total">
-                          {stat.totalAttended + (stat.figureOfTheMatch || 0)}
-                        </div>
-                      </div>
-                      
-                      {user?.role === 'ADMIN' && (
-                        <div className="grid-cell cell-actions">
-                          <button
-                            onClick={() => handleEditPlayer(stat)}
-                            className="btn-icon-edit"
-                            data-tooltip-id="edit-stats-tooltip"
-                            data-tooltip-content="Editar estadísticas"
+                  
+                  {/* Body */}
+                  <div className="goals-grid-body">
+                    {sortedStats
+                      .map((stat, index) => {
+                        const positionEmoji = stat.position === 'Arquera' ? '🧤' :
+                                            stat.position === 'Defensora' ? '🛡️' :
+                                            stat.position === 'Mediocampista' ? '⚙️' :
+                                            stat.position === 'Delantera' ? '⚡' : '⚽';
+                        return (
+                          <div 
+                            key={stat.userId} 
+                            className={`goals-grid-row ${index < 3 ? `top-${index + 1}` : ''}`}
                           >
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-                              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
-                            </svg>
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  ))}
+                            <div className="grid-cell cell-player">
+                              <div className="player-info">
+                                <span className="player-name">{stat.displayName}</span>
+                                {stat.position && (
+                                  <span className="player-position">{positionEmoji} {stat.position}</span>
+                                )}
+                              </div>
+                            </div>
+                            
+                            <div className="grid-cell cell-goals">
+                              <span className="stat-value-large">{stat.goals || 0}</span>
+                            </div>
+                            
+                            <div className="grid-cell cell-assists">
+                              <span className="stat-value-large">{stat.assists || 0}</span>
+                            </div>
+                            
+                            <div className="grid-cell cell-figure">
+                              <span className="stat-value-large">{stat.figureOfTheMatch || 0}</span>
+                            </div>
+                            
+                            <div className="grid-cell cell-yellow-cards">
+                              <span className="stat-value-large">{stat.yellowCards || 0}</span>
+                            </div>
+                            
+                            <div className="grid-cell cell-red-cards">
+                              <span className="stat-value-large">{stat.redCards || 0}</span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    {stats.length === 0 && (
+                      <div className="no-data-goals">
+                        <p>No hay jugadoras registradas en el sistema.</p>
+                      </div>
+                    )}
+                  </div>
                 </div>
+
+                {/* Mobile Compact Table */}
+                <div className="mobile-table-wrapper">
+                  <div className="mobile-table-scroll-hint">
+                    👉 Desliza horizontalmente para ver todas las columnas
+                  </div>
+                  <table className="mobile-compact-table">
+                    <thead>
+                      <tr>
+                        <th>Jugadora</th>
+                        <th title="Goles">⚽<br/>Goles</th>
+                        <th title="Asistencias">🎯<br/>Asis.</th>
+                        <th title="Figura del Partido">⭐<br/>Fig.</th>
+                        <th title="Tarjetas Amarillas">🟨<br/>Am.</th>
+                        <th title="Tarjetas Rojas">🟥<br/>Rojas</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {sortedStats.map((stat, index) => {
+                        const positionEmoji = stat.position === 'Arquera' ? '🧤' :
+                                            stat.position === 'Defensora' ? '🛡️' :
+                                            stat.position === 'Mediocampista' ? '⚙️' :
+                                            stat.position === 'Delantera' ? '⚡' : '⚽';
+                        return (
+                          <tr 
+                            key={stat.userId} 
+                            className={index < 3 ? `top-${index + 1}` : ''}
+                          >
+                            <td>
+                              <div className="mobile-player-cell">
+                                <span className="mobile-player-name-compact">{stat.displayName}</span>
+                                {stat.position && (
+                                  <span className="mobile-player-position-compact">
+                                    {positionEmoji} {stat.position}
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+                            <td>
+                              <span className="mobile-stat-value-compact">{stat.goals || 0}</span>
+                            </td>
+                            <td>
+                              <span className="mobile-stat-value-compact">{stat.assists || 0}</span>
+                            </td>
+                            <td>
+                              <span className="mobile-stat-value-compact">{stat.figureOfTheMatch || 0}</span>
+                            </td>
+                            <td>
+                              <span className="mobile-stat-value-compact">{stat.yellowCards || 0}</span>
+                            </td>
+                            <td>
+                              <span className="mobile-stat-value-compact">{stat.redCards || 0}</span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                  {stats.length === 0 && (
+                    <div className="no-data-goals">
+                      <p>No hay jugadoras registradas en el sistema.</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Mobile Card Layout - Removed (keeping for potential future use) */}
+                <div className="mobile-stats-cards" style={{ display: 'none' }}>
+                  {sortedStats.map((stat, index) => {
+                      const positionEmoji = stat.position === 'Arquera' ? '🧤' :
+                                          stat.position === 'Defensora' ? '🛡️' :
+                                          stat.position === 'Mediocampista' ? '⚙️' :
+                                          stat.position === 'Delantera' ? '⚡' : '⚽';
+                      
+                      const rankBadge = index === 0 ? '🥇' :
+                                       index === 1 ? '🥈' :
+                                       index === 2 ? '🥉' : '';
+                      
+                      return (
+                        <div 
+                          key={stat.userId} 
+                          className={`mobile-stat-card ${index < 3 ? `top-${index + 1}` : ''}`}
+                        >
+                          <div className="mobile-stat-header">
+                            <div className="mobile-player-info">
+                              <div className="mobile-player-name">{stat.displayName}</div>
+                              {stat.position && (
+                                <div className="mobile-player-position">
+                                  {positionEmoji} {stat.position}
+                                </div>
+                              )}
+                            </div>
+                            {rankBadge && (
+                              <div className="mobile-rank-badge">{rankBadge}</div>
+                            )}
+                          </div>
+                          
+                          <div className="mobile-stats-grid">
+                            <div className="mobile-stat-item">
+                              <div className="mobile-stat-label">⚽ Goles</div>
+                              <div className="mobile-stat-value">{stat.goals || 0}</div>
+                            </div>
+                            
+                            <div className="mobile-stat-item">
+                              <div className="mobile-stat-label">🎯 Asistencias</div>
+                              <div className="mobile-stat-value">{stat.assists || 0}</div>
+                            </div>
+                            
+                            <div className="mobile-stat-item">
+                              <div className="mobile-stat-label">⭐ Figura</div>
+                              <div className="mobile-stat-value">{stat.figureOfTheMatch || 0}</div>
+                            </div>
+                            
+                            <div className="mobile-stat-item">
+                              <div className="mobile-stat-label">🟨 Amarillas</div>
+                              <div className="mobile-stat-value">{stat.yellowCards || 0}</div>
+                            </div>
+                            
+                            <div className="mobile-stat-item">
+                              <div className="mobile-stat-label">🟥 Rojas</div>
+                              <div className="mobile-stat-value">{stat.redCards || 0}</div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  {stats.length === 0 && (
+                    <div className="no-data-goals">
+                      <p>No hay jugadoras registradas en el sistema.</p>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
           </div>
-        </>
-      )}
-
-      {/* Tooltip for edit button */}
-      {user?.role === 'ADMIN' && (
-        <Tooltip 
-          id="edit-stats-tooltip" 
-          place="left"
-          className="stats-tooltip"
-          style={{ zIndex: 'var(--z-tooltip)' }}
-        />
-      )}
-
-      {/* Modal de edición para admins */}
-      {editingPlayer && (
-        <Modal 
-          onClose={() => setEditingPlayer(null)} 
-          title={`Editar Estadísticas - ${editingPlayer.displayName}`}
-        >
-          <div className="edit-stats-form">
-            <p className="info-text">
-              💡 Ajusta manualmente las estadísticas si hay discrepancias entre lo registrado y la realidad.
-            </p>
-
-            <div className="stat-edit-group">
-              <label>⚽ Partidos Asistidos:</label>
-              <div className="stat-input-group">
-                <button 
-                  onClick={() => handleDecrement('matchesAttended')}
-                  className="btn-counter"
-                  disabled={saving}
-                >
-                  -
-                </button>
-                <input
-                  type="number"
-                  value={editFormData.matchesAttended}
-                  onChange={(e) => setEditFormData(prev => ({
-                    ...prev,
-                    matchesAttended: Math.max(0, parseInt(e.target.value) || 0)
-                  }))}
-                  min="0"
-                  disabled={saving}
-                />
-                <button 
-                  onClick={() => handleIncrement('matchesAttended')}
-                  className="btn-counter"
-                  disabled={saving}
-                >
-                  +
-                </button>
-              </div>
-            </div>
-
-            <div className="stat-edit-group">
-              <label>🏃 Entrenamientos Asistidos:</label>
-              <div className="stat-input-group">
-                <button 
-                  onClick={() => handleDecrement('trainingsAttended')}
-                  className="btn-counter"
-                  disabled={saving}
-                >
-                  -
-                </button>
-                <input
-                  type="number"
-                  value={editFormData.trainingsAttended}
-                  onChange={(e) => setEditFormData(prev => ({
-                    ...prev,
-                    trainingsAttended: Math.max(0, parseInt(e.target.value) || 0)
-                  }))}
-                  min="0"
-                  disabled={saving}
-                />
-                <button 
-                  onClick={() => handleIncrement('trainingsAttended')}
-                  className="btn-counter"
-                  disabled={saving}
-                >
-                  +
-                </button>
-              </div>
-            </div>
-
-            <div className="stat-edit-group">
-              <label>⭐ Figuras del Partido:</label>
-              <div className="stat-input-group">
-                <button 
-                  onClick={() => handleDecrement('figureOfTheMatch')}
-                  className="btn-counter"
-                  disabled={saving}
-                >
-                  -
-                </button>
-                <input
-                  type="number"
-                  value={editFormData.figureOfTheMatch}
-                  onChange={(e) => setEditFormData(prev => ({
-                    ...prev,
-                    figureOfTheMatch: Math.max(0, parseInt(e.target.value) || 0)
-                  }))}
-                  min="0"
-                  disabled={saving}
-                />
-                <button 
-                  onClick={() => handleIncrement('figureOfTheMatch')}
-                  className="btn-counter"
-                  disabled={saving}
-                >
-                  +
-                </button>
-              </div>
-            </div>
-
-            <div className="total-preview">
-              <strong>Total:</strong> {editFormData.matchesAttended + editFormData.trainingsAttended + editFormData.figureOfTheMatch}
-            </div>
-
-            <div className="modal-actions">
-              <button 
-                onClick={() => setEditingPlayer(null)} 
-                className="btn-secondary"
-                disabled={saving}
-              >
-                Cancelar
-              </button>
-              <button 
-                onClick={handleSaveEdit}
-                className="btn-primary"
-                disabled={saving}
-              >
-                {saving ? 'Guardando...' : 'Guardar Cambios'}
-              </button>
-            </div>
-          </div>
-        </Modal>
-      )}
     </div>
   );
-};
+});
+
+Statistics.displayName = 'Statistics';
 
 export default Statistics;
 

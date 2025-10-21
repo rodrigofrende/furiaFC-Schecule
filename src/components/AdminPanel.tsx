@@ -395,12 +395,12 @@ const AdminPanel = () => {
 
   return (
     <div className="admin-panel">
-      <h2 style={{ color: 'var(--color-furia-black)', marginBottom: '20px' }}>🔧 Panel de Administración</h2>
+      <h1>Panel de Administración</h1>
       
       {/* Sección de Usuarios */}
       <div className="admin-section">
         <div className="section-header">
-          <h3>👥 Gestión de Usuarios</h3>
+          <h2>👥 Gestión de Usuarios</h2>
           <button 
             onClick={openAddUserModal}
             className="btn-primary"
@@ -480,7 +480,7 @@ const AdminPanel = () => {
       {/* Sección de Acciones de Admin */}
       <div className="admin-actions">
         <div className="action-card">
-          <h3>🗑️ Limpieza de Datos</h3>
+          <h2>🗑️ Limpieza de Datos</h2>
           <p>Elimina todos los eventos y asistencias de la base de datos.</p>
           <p className="warning-text">⚠️ Esta acción no se puede deshacer</p>
           
@@ -494,7 +494,7 @@ const AdminPanel = () => {
         </div>
 
         <div className="action-card">
-          <h3>🏆 Gestión de Historial de Partidos</h3>
+          <h2>🏆 Gestión de Historial de Partidos</h2>
           <p>Herramientas para administrar el historial de partidos.</p>
           
           <div className="stats-admin-buttons">
@@ -522,7 +522,7 @@ const AdminPanel = () => {
         </div>
 
         <div className="action-card">
-          <h3>🔄 Resetear Estadísticas</h3>
+          <h2>🔄 Resetear Estadísticas</h2>
           <p>Elimina todas las estadísticas y eventos archivados de la base de datos.</p>
           <p className="warning-text">⚠️ Esta acción es IRREVERSIBLE y eliminará todo el historial de asistencias</p>
           
