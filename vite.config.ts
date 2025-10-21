@@ -5,31 +5,31 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
   build: {
-    // Enable minification
-    minify: 'terser',
-    terserOptions: {
-      compress: {
-        drop_console: true, // Remove console.log in production
-        drop_debugger: true,
-      },
-    },
+    // Enable minification (esbuild es más rápido y compatible)
+    minify: 'esbuild',
     // Enable code splitting
     rollupOptions: {
       output: {
-        manualChunks: {
+        manualChunks(id) {
           // Separate vendor chunks for better caching
-          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
-          'firebase-vendor': ['firebase/app', 'firebase/auth', 'firebase/firestore'],
+          if (id.includes('node_modules')) {
+            if (id.includes('react') || id.includes('react-dom') || id.includes('react-router')) {
+              return 'react-vendor';
+            }
+            if (id.includes('firebase')) {
+              return 'firebase-vendor';
+            }
+          }
         },
       },
     },
     // Optimize chunk size
     chunkSizeWarningLimit: 1000,
-    // Enable source maps for debugging but keep them separate
+    // Disable source maps for smaller builds
     sourcemap: false,
   },
   // Optimize dependencies
   optimizeDeps: {
-    include: ['react', 'react-dom', 'react-router-dom', 'firebase/app', 'firebase/auth', 'firebase/firestore'],
+    include: ['react', 'react-dom', 'react-router-dom'],
   },
 })
