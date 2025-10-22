@@ -11,7 +11,7 @@ A modern, full-stack web application for managing a women's football team, inclu
 
 ## 🎮 Live Demo
 
-**Try it yourself!** Explore the full platform with read-only access:
+**Try it yourself!** Explore the full platform with read-only access: ![DEMO](https://furiafutbolclub.netlify.app/)
 
 ### 🔑 How to Access:
 
@@ -254,7 +254,7 @@ This project is private and intended for portfolio demonstration purposes.
 
 ## 👨‍💻 Developer
 
-**Rodrigo** - [GitHub](https://github.com/yourusername) | [LinkedIn](https://linkedin.com/in/yourprofile)
+**Rodrigo** - [GitHub](https://github.com/rodrigofrende) | [LinkedIn](https://linkedin.com/in/rodrigofrende)
 
 ---
 
