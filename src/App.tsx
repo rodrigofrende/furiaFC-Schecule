@@ -12,6 +12,7 @@ const Fixture = lazy(() => import('./pages/Fixture'));
 const Admin = lazy(() => import('./pages/Admin'));
 const Header = lazy(() => import('./components/Header'));
 const Navigation = lazy(() => import('./components/Navigation'));
+const ReadOnlyBanner = lazy(() => import('./components/ReadOnlyBanner'));
 
 const PrivateRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, loading } = useAuth();
@@ -58,6 +59,7 @@ const AppContent = () => {
           <Route path="*" element={
             <PrivateRoute>
               <>
+                <ReadOnlyBanner />
                 <Header />
                 <div className="app-container">
                   <Navigation />

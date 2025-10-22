@@ -35,7 +35,7 @@ const tooltipProps = {
 };
 
 const Home = () => {
-  const { user } = useAuth();
+  const { user, isReadOnly } = useAuth();
   const [events, setEvents] = useState<Event[]>([]);
   const [attendances, setAttendances] = useState<Record<string, Attendance>>({});
   const [loading, setLoading] = useState(true);
@@ -69,7 +69,17 @@ const Home = () => {
     try {
       const usersRef = collection(db, 'users');
       const usersSnapshot = await getDocs(usersRef);
-      setTotalUsers(usersSnapshot.size);
+      
+      // Count PLAYER and ADMIN users (exclude only VIEWER)
+      let userCount = 0;
+      usersSnapshot.forEach((doc) => {
+        const userData = doc.data();
+        if (userData.role === 'PLAYER' || userData.role === 'ADMIN') {
+          userCount++;
+        }
+      });
+      
+      setTotalUsers(userCount);
     } catch (error) {
       console.error('Error loading total users:', error);
     }
@@ -88,9 +98,13 @@ const Home = () => {
         countMap[eventId] = 0;
       });
       
-      // Count participants for each event
+      // Count participants for each event (excluding VIEWER demo users)
       participantsSnapshot.forEach((doc) => {
         const data = doc.data();
+        // Skip demo/viewer users from counts
+        if (data.userId === 'testfuria@demo.com') {
+          return;
+        }
         if (eventIds.includes(data.eventId)) {
           countMap[data.eventId] = (countMap[data.eventId] || 0) + 1;
         }
@@ -381,6 +395,12 @@ const Home = () => {
       
       participantsSnapshot.forEach((doc) => {
         const data = doc.data();
+        
+        // Skip VIEWER users (demo accounts) from participant lists
+        if (data.userId === 'testfuria@demo.com') {
+          return;
+        }
+        
         // Use email as the common identifier
         const userEmail = data.userEmail || data.userId; // Fallback to userId if email not available
         votedUserEmails.add(userEmail);
@@ -399,11 +419,18 @@ const Home = () => {
         });
       });
       
-      // Find users who haven't voted yet
+      // Find users who haven't voted yet (excluding only VIEWER roles)
       const usersWhoHaventVoted: Attendance[] = [];
       usersSnapshot.forEach((userDoc) => {
         const userData = userDoc.data();
         const userEmail = userData.email;
+        const userRole = userData.role;
+        
+        // Skip only VIEWER users from participant lists (keep ADMIN and PLAYER)
+        if (userRole === 'VIEWER') {
+          return;
+        }
+        
         if (!votedUserEmails.has(userEmail)) {
           usersWhoHaventVoted.push({
             id: `pending_${userDoc.id}_${eventId}`,
@@ -461,6 +488,12 @@ const Home = () => {
   };
 
   const handleEventClick = async (event: Event) => {
+    // Block for read-only users
+    if (isReadOnly) {
+      alert('⚠️ Cuenta de demostración - No podés modificar tu participación');
+      return;
+    }
+
     setLoadingModal(true);
     setSelectedEvent(event);
     
@@ -503,6 +536,12 @@ const Home = () => {
 
   const handleSaveAttendance = async () => {
     if (!selectedEvent || !user) return;
+
+    // Block save for read-only users
+    if (isReadOnly) {
+      alert('⚠️ Cuenta de demostración - No podés guardar cambios');
+      return;
+    }
 
     setSavingAttendance(true);
     try {
@@ -856,6 +895,8 @@ const Home = () => {
                       <button 
                         onClick={() => handleEventClick(event)}
                         className="btn-primary"
+                        disabled={isReadOnly}
+                        title={isReadOnly ? 'Cuenta de demostración - Solo lectura' : ''}
                       >
                         {isRegistered ? 'Editar Participación' : 'Anotarse'}
                       </button>

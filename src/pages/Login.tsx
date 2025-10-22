@@ -8,7 +8,7 @@ import '../styles/Login.css';
 
 interface FirestoreUser {
   email: string;
-  role: 'ADMIN' | 'PLAYER';
+  role: 'ADMIN' | 'PLAYER' | 'VIEWER';
   alias: string;
 }
 
@@ -26,6 +26,13 @@ const Login = () => {
     setLoading(true);
 
     try {
+      // Special handling for demo user 'testfuria'
+      if (email.toLowerCase() === 'testfuria') {
+        signIn('testfuria@demo.com', 'Test Furia', 'VIEWER');
+        setLoading(false);
+        return;
+      }
+
       const usersRef = collection(db, 'users');
       const q = query(usersRef, where('email', '==', email.toLowerCase()));
       const querySnapshot = await getDocs(q);
@@ -81,12 +88,13 @@ const Login = () => {
         
         <form onSubmit={handleLogin} className="login-form">
           <input
-            type="email"
-            placeholder="Email"
+            type="text"
+            placeholder="Email o Usuario"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
             disabled={isAdminLogin}
+            autoComplete="username"
           />
           
           {isAdminLogin && (

@@ -6,11 +6,12 @@ import { collection, query, where, getDocs, doc, updateDoc, addDoc, Timestamp } 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  signIn: (email: string, displayName: string, role: 'ADMIN' | 'PLAYER') => void;
+  signIn: (email: string, displayName: string, role: 'ADMIN' | 'PLAYER' | 'VIEWER') => void;
   signOut: () => void;
   updateDisplayName: (newName: string) => void;
   updateBirthday: (birthday: string) => Promise<void>;
   updatePosition: (position: PlayerPosition | '') => Promise<void>;
+  isReadOnly: boolean; // Helper to check if user is in read-only mode
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -35,7 +36,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setLoading(false);
   }, []);
 
-  const signIn = (email: string, displayName: string, role: 'ADMIN' | 'PLAYER') => {
+  const signIn = (email: string, displayName: string, role: 'ADMIN' | 'PLAYER' | 'VIEWER') => {
     const newUser: User = {
       id: email,
       email,
@@ -46,12 +47,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(newUser));
   };
 
+  // Helper to check if user is in read-only mode
+  const isReadOnly = user?.role === 'VIEWER';
+
   const signOut = () => {
     setUser(null);
     localStorage.removeItem(AUTH_STORAGE_KEY);
   };
 
   const updateDisplayName = async (newName: string) => {
+    // Prevent updates for read-only users
+    if (isReadOnly) {
+      console.warn('Cannot update display name in read-only mode');
+      return;
+    }
+
     if (user) {
       try {
         const usersRef = collection(db, 'users');
@@ -78,6 +88,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const updateBirthday = async (birthday: string) => {
+    // Prevent updates for read-only users
+    if (isReadOnly) {
+      console.warn('Cannot update birthday in read-only mode');
+      return;
+    }
+
     if (!user) {
       throw new Error('No hay usuario autenticado');
     }
@@ -166,6 +182,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const updatePosition = async (position: PlayerPosition | '') => {
+    // Prevent updates for read-only users
+    if (isReadOnly) {
+      console.warn('Cannot update position in read-only mode');
+      return;
+    }
+
     if (!user) {
       throw new Error('No hay usuario autenticado');
     }
@@ -174,7 +196,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       throw new Error('Solo los jugadores pueden tener una posición');
     }
 
-    try {
+    try{
       // Actualizar la posición en la colección users
       const usersRef = collection(db, 'users');
       const userQuery = query(usersRef, where('email', '==', user.email));
@@ -206,7 +228,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, signIn, signOut, updateDisplayName, updateBirthday, updatePosition }}>
+    <AuthContext.Provider value={{ user, loading, signIn, signOut, updateDisplayName, updateBirthday, updatePosition, isReadOnly }}>
       {children}
     </AuthContext.Provider>
   );

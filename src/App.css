@@ -5,7 +5,7 @@
 .app-container {
   display: flex;
   min-height: 100vh;
-  padding-top: 55px; /* Default for mobile */
+  padding-top: 0; /* No padding needed - header is fixed and banner has its own margin */
   background-color: var(--color-gray-lightest);
   background-image: 
     repeating-linear-gradient(
@@ -216,10 +216,11 @@ label {
 @media (max-width: 768px) {
   .app-container {
     flex-direction: column;
+    margin-top: 55px; /* Space for fixed header when no banner */
   }
 
   .main-content {
-    padding: var(--space-md);
+    padding: 12px; /* Reduced from var(--space-md) */
     margin-left: 0;
     max-width: 100%;
   }

@@ -40,8 +40,8 @@ const Statistics = memo(() => {
       const statsArray: PlayerStats[] = [];
       
       usersMap.forEach((userData, userId) => {
-        // Skip ADMIN users
-        if (userData.role === 'ADMIN') {
+        // Skip ADMIN and VIEWER users from statistics (stats are only for players)
+        if (userData.role === 'ADMIN' || userData.role === 'VIEWER') {
           return;
         }
         
