@@ -1,4 +1,4 @@
-export type UserRole = 'ADMIN' | 'PLAYER';
+export type UserRole = 'ADMIN' | 'PLAYER' | 'VIEWER';
 
 export type PlayerPosition = 'Arquera' | 'Defensora' | 'Mediocampista' | 'Delantera';
 

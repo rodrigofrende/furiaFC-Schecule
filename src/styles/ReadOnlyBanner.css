@@ -1,0 +1,128 @@
+.readonly-banner {
+  margin-left: 300px;
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  border-bottom: 2px solid #f59e0b;
+  padding: 10px 20px;
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.2);
+  animation: slideDown 0.3s ease-out;
+}
+
+@keyframes slideDown {
+  from {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.readonly-banner-content {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.readonly-icon {
+  font-size: 24px;
+  flex-shrink: 0;
+}
+
+.readonly-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+}
+
+.readonly-text strong {
+  font-size: 14px;
+  font-weight: 700;
+  color: #92400e;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.readonly-description {
+  font-size: 13px;
+  color: #78350f;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+/* Hide mobile version on desktop */
+.readonly-description-mobile {
+  display: none;
+}
+
+/* Show desktop version on desktop */
+.readonly-description-desktop {
+  display: block;
+}
+
+@media (max-width: 768px) {
+  .readonly-banner {
+    margin-left: 0;
+    margin-top: 55px; /* Height of mobile header */
+    margin-bottom: -55px; /* Cancel out app-container margin-top */
+    padding: 6px 12px; /* Reduced padding */
+  }
+
+  .readonly-banner-content {
+    gap: 6px; /* Reduced gap */
+  }
+
+  .readonly-icon {
+    font-size: 16px; /* Smaller icon */
+  }
+
+  .readonly-text {
+    gap: 1px; /* Minimal gap */
+  }
+
+  .readonly-text strong {
+    font-size: 10px;
+    letter-spacing: 0.2px;
+  }
+
+  /* Hide desktop description on mobile */
+  .readonly-description-desktop {
+    display: none;
+  }
+
+  /* Show mobile description on mobile */
+  .readonly-description-mobile {
+    display: block;
+    font-size: 9px;
+    line-height: 1.2;
+  }
+}
+
+@media (max-width: 480px) {
+  .readonly-banner {
+    padding: 5px 8px; /* Even more compact */
+  }
+
+  .readonly-banner-content {
+    gap: 5px;
+  }
+
+  .readonly-icon {
+    font-size: 14px;
+  }
+
+  .readonly-text strong {
+    font-size: 9px;
+  }
+
+  .readonly-description-mobile {
+    font-size: 8px;
+  }
+}
+

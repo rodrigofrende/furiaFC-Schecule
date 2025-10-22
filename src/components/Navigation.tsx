@@ -10,7 +10,7 @@ import { type PlayerPosition } from '../types';
 import '../styles/Navigation.css';
 
 const Navigation = () => {
-  const { user, signOut, updateDisplayName, updateBirthday, updatePosition } = useAuth();
+  const { user, signOut, updateDisplayName, updateBirthday, updatePosition, isReadOnly } = useAuth();
   const [showEditModal, setShowEditModal] = useState(false);
   const [newName, setNewName] = useState('');
   const [newBirthday, setNewBirthday] = useState('');
@@ -150,17 +150,19 @@ const Navigation = () => {
         <div className="nav-user-info">
           <span className="nav-username">{user?.displayName}</span>
           <div className="nav-user-actions">
-            <button 
-              onClick={handleEditName} 
-              className="btn-icon btn-profile"
-              data-tooltip-id="nav-profile-tooltip"
-              data-tooltip-content="Editar Perfil"
-            >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-                <circle cx="12" cy="7" r="4"/>
-              </svg>
-            </button>
+            {!isReadOnly && (
+              <button 
+                onClick={handleEditName} 
+                className="btn-icon btn-profile"
+                data-tooltip-id="nav-profile-tooltip"
+                data-tooltip-content="Editar Perfil"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                  <circle cx="12" cy="7" r="4"/>
+                </svg>
+              </button>
+            )}
             
             <button 
               onClick={signOut} 
