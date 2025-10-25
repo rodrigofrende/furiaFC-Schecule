@@ -27,6 +27,7 @@ const CreateEvent = ({ onEventCreated, editingEvent, isOpen, onClose }: CreateEv
   const [recurringType, setRecurringType] = useState<'weekly' | 'monthly' | 'yearly'>('weekly');
   const [recurringEndDate, setRecurringEndDate] = useState('');
   const [loading, setLoading] = useState(false);
+  const [suspended, setSuspended] = useState(false);
   
   // Rival selection states
   const [rivals, setRivals] = useState<Rival[]>([]);
@@ -60,6 +61,13 @@ const CreateEvent = ({ onEventCreated, editingEvent, isOpen, onClose }: CreateEv
       
       setIsRecurring(editingEvent.isRecurring || false);
       setRecurringType(editingEvent.recurringType || 'weekly');
+      setSuspended(editingEvent.suspended || false);
+      
+      // Cargar fecha de finalización de eventos recurrentes
+      if (editingEvent.recurringEndDate) {
+        const endDateStr = editingEvent.recurringEndDate.toISOString().split('T')[0];
+        setRecurringEndDate(endDateStr);
+      }
     } else {
       // Reset form when not editing
       resetForm();
@@ -196,6 +204,7 @@ const CreateEvent = ({ onEventCreated, editingEvent, isOpen, onClose }: CreateEv
     setIsRecurring(false);
     setRecurringType('weekly');
     setRecurringEndDate('');
+    setSuspended(false);
   };
 
   const handleSubmit = async () => {
@@ -232,8 +241,21 @@ const CreateEvent = ({ onEventCreated, editingEvent, isOpen, onClose }: CreateEv
           description: description.trim(),
           location: location.trim(),
           date: eventDate,
-          isRecurring: isRecurring
+          isRecurring: isRecurring,
+          suspended: suspended
         };
+        
+        // Si se está suspendiendo el evento, agregar metadata
+        if (suspended && !editingEvent.suspended) {
+          updateData.suspendedBy = user.id;
+          updateData.suspendedAt = serverTimestamp();
+        }
+        
+        // Si se está reactivando el evento, eliminar metadata de suspensión
+        if (!suspended && editingEvent.suspended) {
+          updateData.suspendedBy = deleteField();
+          updateData.suspendedAt = deleteField();
+        }
         
         // Add or remove rival info based on event type
         if (isMatch && selectedRivalId) {
@@ -298,6 +320,7 @@ const CreateEvent = ({ onEventCreated, editingEvent, isOpen, onClose }: CreateEv
               createdAt: serverTimestamp(),
               isRecurring: true,
               recurringType: effectiveRecurringType,
+              recurringEndDate: endDate, // Guardar la fecha de finalización de la serie
               originalEventId: null
             };
             
@@ -557,8 +580,20 @@ const CreateEvent = ({ onEventCreated, editingEvent, isOpen, onClose }: CreateEv
                       type="checkbox"
                       checked={isRecurring}
                       onChange={(e) => setIsRecurring(e.target.checked)}
+                      disabled={!!editingEvent}
                     />
                   </div>
+                  {editingEvent && (
+                    <span style={{ 
+                      fontSize: '0.85rem', 
+                      color: '#666', 
+                      marginTop: '8px',
+                      fontStyle: 'italic',
+                      display: 'block'
+                    }}>
+                      ℹ️ No puede cambiar si el evento es recurrente al editarlo
+                    </span>
+                  )}
                 </div>
                 
                 {isRecurring && (
@@ -569,16 +604,28 @@ const CreateEvent = ({ onEventCreated, editingEvent, isOpen, onClose }: CreateEv
                         <button
                           className={`toggle-btn ${recurringType === 'weekly' ? 'active' : ''}`}
                           onClick={() => setRecurringType('weekly')}
+                          disabled={!!editingEvent}
                         >
                           📅 Semanal
                         </button>
                         <button
                           className={`toggle-btn ${recurringType === 'monthly' ? 'active' : ''}`}
                           onClick={() => setRecurringType('monthly')}
+                          disabled={!!editingEvent}
                         >
                           📆 Mensual
                         </button>
                       </div>
+                      {editingEvent && (
+                        <span style={{ 
+                          fontSize: '0.85rem', 
+                          color: '#666', 
+                          marginTop: '8px',
+                          fontStyle: 'italic'
+                        }}>
+                          ℹ️ El tipo de repetición no puede modificarse al editar un evento individual de la serie
+                        </span>
+                      )}
                     </div>
                     
                     <div className="form-group">
@@ -588,7 +635,19 @@ const CreateEvent = ({ onEventCreated, editingEvent, isOpen, onClose }: CreateEv
                         value={recurringEndDate}
                         onChange={(e) => setRecurringEndDate(e.target.value)}
                         min={date}
+                        disabled={!!editingEvent}
+                        className={editingEvent ? 'input-disabled' : ''}
                       />
+                      {editingEvent && recurringEndDate && (
+                        <span style={{ 
+                          fontSize: '0.85rem', 
+                          color: '#666', 
+                          marginTop: '8px',
+                          fontStyle: 'italic'
+                        }}>
+                          ℹ️ La fecha de finalización no puede modificarse al editar un evento individual de la serie
+                        </span>
+                      )}
                     </div>
                   </div>
                 )}
@@ -639,6 +698,35 @@ const CreateEvent = ({ onEventCreated, editingEvent, isOpen, onClose }: CreateEv
               />
               <span className="char-count">{description.length}/80</span>
             </div>
+
+            {/* Opción de suspender evento - solo para admins y solo al editar */}
+            {editingEvent && user?.role === 'ADMIN' && (
+              <div className="form-group">
+                <div className="suspended-toggle">
+                  <div className="toggle-label">
+                    <span className="toggle-text">🚫 Suspender Evento</span>
+                    <input
+                      type="checkbox"
+                      checked={suspended}
+                      onChange={(e) => setSuspended(e.target.checked)}
+                    />
+                  </div>
+                </div>
+                {suspended && (
+                  <div className="info-box" style={{ 
+                    padding: '12px', 
+                    backgroundColor: '#ffe5e5', 
+                    border: '1px solid #ff4444',
+                    borderRadius: '8px',
+                    fontSize: '14px',
+                    color: '#cc0000',
+                    marginTop: '12px'
+                  }}>
+                    ⚠️ El evento suspendido mostrará un banner informativo y no permitirá que los participantes se anoten o editen su asistencia. Solo será posible ver la lista de participantes.
+                  </div>
+                )}
+              </div>
+            )}
 
             <div className="modal-actions">
               <button onClick={handleClose} className="btn-secondary">

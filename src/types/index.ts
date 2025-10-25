@@ -39,7 +39,11 @@ export interface Event {
   createdAt: Date;
   isRecurring?: boolean;
   recurringType?: 'weekly' | 'monthly' | 'yearly';
+  recurringEndDate?: Date; // Fecha de finalización de la serie recurrente
   originalEventId?: string | null;
+  suspended?: boolean; // Si el evento está suspendido
+  suspendedBy?: string; // ID del admin que suspendió el evento
+  suspendedAt?: Date; // Fecha de suspensión
 }
 
 export type AttendanceStatus = 'attending' | 'not-attending' | 'pending' | 'not-voted';

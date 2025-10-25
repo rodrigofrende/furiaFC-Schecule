@@ -165,9 +165,13 @@ const Home = () => {
             createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate() : new Date(data.createdAt),
             isRecurring: data.isRecurring,
             recurringType: data.recurringType,
+            recurringEndDate: data.recurringEndDate instanceof Timestamp ? data.recurringEndDate.toDate() : (data.recurringEndDate ? new Date(data.recurringEndDate) : undefined),
             originalEventId: data.originalEventId,
             rivalId: data.rivalId || undefined,
-            rivalName: data.rivalName || undefined
+            rivalName: data.rivalName || undefined,
+            suspended: data.suspended || false,
+            suspendedBy: data.suspendedBy,
+            suspendedAt: data.suspendedAt instanceof Timestamp ? data.suspendedAt.toDate() : (data.suspendedAt ? new Date(data.suspendedAt) : undefined)
           });
         }
       });
@@ -822,6 +826,14 @@ const Home = () => {
                   <p className="event-description">{event.description}</p>
                 )}
                 
+                {/* Banner de evento suspendido */}
+                {event.suspended && (
+                  <div className="event-suspended-banner">
+                    <span className="suspended-icon">🚫</span>
+                    <span className="suspended-text">Este evento ha sido suspendido</span>
+                  </div>
+                )}
+                
                 {event.type === 'BIRTHDAY' ? (
                   // Birthday events: Solo informativo, sin participación
                   <>
@@ -871,35 +883,39 @@ const Home = () => {
                 ) : (
                   // Other events: Con participación normal
                   <>
-                    <div className="event-status-row">
-                      <div className="event-status">
-                        {isRegistered ? (
-                          <span className={`status-badge ${isAttending ? 'attending' : 'not-attending'}`}>
-                            {isAttending ? '✓ Confirmado' : '✗ No asisto'}
+                    {!event.suspended && (
+                      <div className="event-status-row">
+                        <div className="event-status">
+                          {isRegistered ? (
+                            <span className={`status-badge ${isAttending ? 'attending' : 'not-attending'}`}>
+                              {isAttending ? '✓ Confirmado' : '✗ No asisto'}
+                            </span>
+                          ) : (
+                            <span className="status-badge pending">
+                              ⏳ Pendiente
+                            </span>
+                          )}
+                        </div>
+                        <div className="event-votes-counter">
+                          <span className="votes-text">
+                            {eventParticipantsCount[event.id] || 0} / {totalUsers} personas votaron
+                            {(eventParticipantsCount[event.id] || 0) === totalUsers && totalUsers > 0 && ' 🎉'}
                           </span>
-                        ) : (
-                          <span className="status-badge pending">
-                            ⏳ Pendiente
-                          </span>
-                        )}
+                        </div>
                       </div>
-                      <div className="event-votes-counter">
-                        <span className="votes-text">
-                          {eventParticipantsCount[event.id] || 0} / {totalUsers} personas votaron
-                          {(eventParticipantsCount[event.id] || 0) === totalUsers && totalUsers > 0 && ' 🎉'}
-                        </span>
-                      </div>
-                    </div>
+                    )}
 
                     <div className="event-actions">
-                      <button 
-                        onClick={() => handleEventClick(event)}
-                        className="btn-primary"
-                        disabled={isReadOnly}
-                        title={isReadOnly ? 'Cuenta de demostración - Solo lectura' : ''}
-                      >
-                        {isRegistered ? 'Editar Participación' : 'Anotarse'}
-                      </button>
+                      {!event.suspended && (
+                        <button 
+                          onClick={() => handleEventClick(event)}
+                          className="btn-primary"
+                          disabled={isReadOnly}
+                          title={isReadOnly ? 'Cuenta de demostración - Solo lectura' : ''}
+                        >
+                          {isRegistered ? 'Editar Participación' : 'Anotarse'}
+                        </button>
+                      )}
                       <button 
                         onClick={() => handleViewParticipants(event)}
                         className="btn-secondary"
