@@ -192,7 +192,7 @@ const Navigation = () => {
           <NavLink to="/statistics" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>
             📊 Estadísticas
           </NavLink>
-          {user?.role === 'ADMIN' && (
+          {(user?.role === 'ADMIN' || user?.role === 'VIEWER') && (
             <NavLink to="/admin" className={({ isActive }) => isActive ? 'nav-link active admin-link' : 'nav-link admin-link'}>
               🔧 Admin
             </NavLink>

@@ -18,7 +18,7 @@ interface UserData {
 }
 
 const AdminPanel = () => {
-  const { user } = useAuth();
+  const { user, isReadOnly } = useAuth();
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showUserModal, setShowUserModal] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -35,9 +35,10 @@ const AdminPanel = () => {
   const [creatingTestMatches, setCreatingTestMatches] = useState(false);
   const [deletingHistory, setDeletingHistory] = useState(false);
   const [reprocessingStats, setReprocessingStats] = useState(false);
+  const [clearingFixture, setClearingFixture] = useState(false);
 
-  // Solo mostrar para administradores
-  if (user?.role !== 'ADMIN') {
+  // Permitir acceso a ADMIN y VIEWER (solo lectura)
+  if (!user || (user.role !== 'ADMIN' && user.role !== 'VIEWER')) {
     return null;
   }
 
@@ -355,6 +356,62 @@ const AdminPanel = () => {
     }
   };
 
+  const handleClearFixture = async () => {
+    const confirmation = confirm(
+      '🏆 ¿Estás seguro de que quieres LIMPIAR el FIXTURE completo?\n\n' +
+      'Esta acción eliminará:\n' +
+      '• Todos los partidos del fixture actual\n' +
+      '• Fechas y configuración del torneo\n\n' +
+      '⚠️ ESTA ACCIÓN ES IRREVERSIBLE\n\n' +
+      'Nota: El historial de partidos jugados NO se verá afectado.\n\n' +
+      '¿Deseas continuar?'
+    );
+
+    if (!confirmation) {
+      return;
+    }
+
+    // Segunda confirmación
+    const doubleConfirmation = confirm(
+      '⚠️ ÚLTIMA CONFIRMACIÓN\n\n' +
+      'Se borrará TODO el fixture del torneo actual.\n' +
+      'Esto es útil para comenzar un nuevo torneo.\n\n' +
+      '¿Estás ABSOLUTAMENTE SEGURO?'
+    );
+
+    if (!doubleConfirmation) {
+      return;
+    }
+
+    setClearingFixture(true);
+    try {
+      const batch = writeBatch(db);
+      let fixturesDeleted = 0;
+
+      // Eliminar todos los documentos de la colección 'fixtures'
+      const fixturesRef = collection(db, 'fixtures');
+      const fixturesSnapshot = await getDocs(fixturesRef);
+      
+      fixturesSnapshot.forEach((fixtureDoc) => {
+        batch.delete(fixtureDoc.ref);
+        fixturesDeleted++;
+      });
+      
+      await batch.commit();
+
+      alert(
+        `✅ Fixture limpiado exitosamente:\n\n` +
+        `• ${fixturesDeleted} partidos del fixture eliminados\n\n` +
+        `El fixture está listo para un nuevo torneo.`
+      );
+    } catch (error) {
+      console.error('Error clearing fixture:', error);
+      alert('❌ Error al limpiar el fixture');
+    } finally {
+      setClearingFixture(false);
+    }
+  };
+
   const handleDeleteMatchHistory = async () => {
     const confirmation = confirm(
       '🚨 ¿Estás seguro de que quieres ELIMINAR TODO EL HISTORIAL de partidos?\n\n' +
@@ -461,7 +518,8 @@ const AdminPanel = () => {
           <button 
             onClick={openAddUserModal}
             className="btn-primary"
-            disabled={loading}
+            disabled={loading || isReadOnly}
+            title={isReadOnly ? 'No disponible en modo solo lectura' : ''}
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: '8px' }}>
               <line x1="12" y1="5" x2="12" y2="19"/>
@@ -496,7 +554,7 @@ const AdminPanel = () => {
                     <td>{userData.alias}</td>
                     <td>
                       <span className={`role-badge role-${userData.role.toLowerCase()}`}>
-                        {userData.role === 'ADMIN' ? 'ADMIN' : 'JUGADORA'}
+                        {userData.role === 'ADMIN' ? 'ADMIN' : userData.role === 'VIEWER' ? 'VIEWER' : 'JUGADORA'}
                       </span>
                     </td>
                     <td>{userData.role === 'PLAYER' ? (userData.position || '-') : '-'}</td>
@@ -504,8 +562,8 @@ const AdminPanel = () => {
                       <button
                         onClick={() => openEditUserModal(userData)}
                         className="btn-icon btn-edit"
-                        disabled={loading}
-                        title="Editar usuario"
+                        disabled={loading || isReadOnly}
+                        title={isReadOnly ? 'No disponible en modo solo lectura' : 'Editar usuario'}
                       >
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                           <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
@@ -515,8 +573,8 @@ const AdminPanel = () => {
                       <button
                         onClick={() => handleDeleteUser(userData.id)}
                         className="btn-icon btn-delete"
-                        disabled={loading}
-                        title="Eliminar usuario"
+                        disabled={loading || isReadOnly}
+                        title={isReadOnly ? 'No disponible en modo solo lectura' : 'Eliminar usuario'}
                       >
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                           <polyline points="3,6 5,6 21,6"/>
@@ -536,30 +594,45 @@ const AdminPanel = () => {
 
       {/* Sección de Acciones de Admin */}
       <div className="admin-actions">
+        {/* Card: Limpieza de Datos */}
         <div className="action-card">
           <h2>🗑️ Limpieza de Datos</h2>
-          <p>Elimina todos los eventos y asistencias de la base de datos.</p>
-          <p className="warning-text">⚠️ Esta acción no se puede deshacer</p>
+          <p>Herramientas para limpiar diferentes secciones de la base de datos.</p>
           
-          <button 
-            onClick={openDeleteModal}
-            className="btn-danger"
-            disabled={loading}
-          >
-            🗑️ Borrar Tabla de Eventos
-          </button>
+          <div className="stats-admin-buttons">
+            <button 
+              onClick={handleClearFixture}
+              className="btn-danger"
+              disabled={clearingFixture || isReadOnly}
+              title={isReadOnly ? 'No disponible en modo solo lectura' : 'Limpiar todos los partidos del fixture para comenzar un nuevo torneo'}
+            >
+              {clearingFixture ? 'Limpiando...' : '🏆 Limpiar Fixture'}
+            </button>
+
+            <button 
+              onClick={openDeleteModal}
+              className="btn-danger"
+              disabled={loading || isReadOnly}
+              title={isReadOnly ? 'No disponible en modo solo lectura' : 'Eliminar todos los eventos y asistencias'}
+            >
+              🗑️ Borrar Todos los Eventos
+            </button>
+          </div>
+          
+          <p className="warning-text">⚠️ Estas acciones son irreversibles</p>
         </div>
 
+        {/* Card: Gestión de Historial */}
         <div className="action-card">
-          <h2>🏆 Gestión de Historial de Partidos</h2>
+          <h2>🏆 Gestión de Historial</h2>
           <p>Herramientas para administrar el historial de partidos.</p>
           
           <div className="stats-admin-buttons">
             <button 
               onClick={handleReprocessStats}
               className="btn-success"
-              disabled={reprocessingStats}
-              title="Reprocesar todas las estadísticas desde los partidos guardados"
+              disabled={reprocessingStats || isReadOnly}
+              title={isReadOnly ? 'No disponible en modo solo lectura' : 'Reprocesar todas las estadísticas desde los partidos guardados'}
             >
               {reprocessingStats ? 'Reprocesando...' : '🔄 Reprocesar Estadísticas'}
             </button>
@@ -567,8 +640,8 @@ const AdminPanel = () => {
             <button 
               onClick={handleCreateTestMatches}
               className="btn-primary"
-              disabled={creatingTestMatches}
-              title="Crear 3 partidos de prueba con fechas pasadas"
+              disabled={creatingTestMatches || isReadOnly}
+              title={isReadOnly ? 'No disponible en modo solo lectura' : 'Crear 3 partidos de prueba con fechas pasadas'}
             >
               {creatingTestMatches ? 'Creando...' : '⚽ Crear Partidos de Prueba'}
             </button>
@@ -576,8 +649,8 @@ const AdminPanel = () => {
             <button 
               onClick={handleDeleteMatchHistory}
               className="btn-danger"
-              disabled={deletingHistory}
-              title="Eliminar todo el historial de partidos (irreversible)"
+              disabled={deletingHistory || isReadOnly}
+              title={isReadOnly ? 'No disponible en modo solo lectura' : 'Eliminar todo el historial de partidos (irreversible)'}
             >
               {deletingHistory ? 'Eliminando...' : '🗑️ Borrar Todo el Historial'}
             </button>
@@ -587,6 +660,7 @@ const AdminPanel = () => {
           <p className="warning-text">⚠️ Borrar el historial eliminará todos los partidos, resultados y goles registrados</p>
         </div>
 
+        {/* Card: Resetear Estadísticas */}
         <div className="action-card">
           <h2>🔄 Resetear Estadísticas</h2>
           <p>Elimina todas las estadísticas y eventos archivados de la base de datos.</p>
@@ -595,7 +669,8 @@ const AdminPanel = () => {
           <button 
             onClick={handleResetStats}
             className="btn-danger"
-            disabled={resettingStats}
+            disabled={resettingStats || isReadOnly}
+            title={isReadOnly ? 'No disponible en modo solo lectura' : ''}
           >
             {resettingStats ? 'Reseteando...' : '🔄 Resetear Todas las Estadísticas'}
           </button>
@@ -652,6 +727,7 @@ const AdminPanel = () => {
               >
                 <option value="ADMIN">ADMIN</option>
                 <option value="PLAYER">JUGADORA</option>
+                <option value="VIEWER">VIEWER</option>
               </select>
             </div>
 

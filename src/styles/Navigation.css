@@ -13,6 +13,31 @@
   bottom: 0;
   width: 220px;
   z-index: var(--z-sticky);
+  overflow-y: auto; /* Permitir scroll vertical cuando el contenido es más grande */
+  overflow-x: hidden; /* Evitar scroll horizontal */
+  /* Scrollbar para Firefox */
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-furia-blue) rgba(0, 0, 0, 0.3);
+}
+
+/* Estilos personalizados para el scrollbar en Webkit (Chrome, Safari, Edge) */
+.navigation::-webkit-scrollbar {
+  width: 8px;
+}
+
+.navigation::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 4px;
+}
+
+.navigation::-webkit-scrollbar-thumb {
+  background: var(--color-furia-blue);
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+
+.navigation::-webkit-scrollbar-thumb:hover {
+  background: var(--color-furia-blue-light);
 }
 
 .nav-brand {
