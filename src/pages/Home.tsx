@@ -53,6 +53,7 @@ const Home = () => {
     notAttending: Attendance[];
     notVoted: Attendance[];
   }>({ attending: [], pending: [], notAttending: [], notVoted: [] });
+  const [selectedEventForParticipants, setSelectedEventForParticipants] = useState<Event | null>(null);
   const [totalUsers, setTotalUsers] = useState(0);
   const [eventParticipantsCount, setEventParticipantsCount] = useState<Record<string, number>>({});
   const [showCreateEventModal, setShowCreateEventModal] = useState(false);
@@ -171,7 +172,8 @@ const Home = () => {
             rivalName: data.rivalName || undefined,
             suspended: data.suspended || false,
             suspendedBy: data.suspendedBy,
-            suspendedAt: data.suspendedAt instanceof Timestamp ? data.suspendedAt.toDate() : (data.suspendedAt ? new Date(data.suspendedAt) : undefined)
+            suspendedAt: data.suspendedAt instanceof Timestamp ? data.suspendedAt.toDate() : (data.suspendedAt ? new Date(data.suspendedAt) : undefined),
+            guestParticipants: data.guestParticipants || []
           });
         }
       });
@@ -488,6 +490,7 @@ const Home = () => {
 
   const handleViewParticipants = async (event: Event) => {
     await loadEventParticipants(event.id);
+    setSelectedEventForParticipants(event);
     setShowParticipantsModal(true);
   };
 
@@ -900,6 +903,17 @@ const Home = () => {
                           <span className="votes-text">
                             {eventParticipantsCount[event.id] || 0} / {totalUsers} personas votaron
                             {(eventParticipantsCount[event.id] || 0) === totalUsers && totalUsers > 0 && ' 🎉'}
+                            {event.guestParticipants && event.guestParticipants.length > 0 && (
+                              <span style={{
+                                display: 'block',
+                                fontSize: '12px',
+                                color: '#666',
+                                fontStyle: 'italic',
+                                marginTop: '4px'
+                              }}>
+                                + {event.guestParticipants.length} invitado{event.guestParticipants.length !== 1 ? 's' : ''}
+                              </span>
+                            )}
                           </span>
                         </div>
                       </div>
@@ -1089,18 +1103,21 @@ const Home = () => {
 
       {showParticipantsModal && (
         <Modal 
-          onClose={() => setShowParticipantsModal(false)} 
+          onClose={() => {
+            setShowParticipantsModal(false);
+            setSelectedEventForParticipants(null);
+          }} 
           title="Participantes del Evento"
         >
           <div className="participants-container">
-            {eventParticipants.attending.length === 0 && eventParticipants.pending.length === 0 && eventParticipants.notAttending.length === 0 && eventParticipants.notVoted.length === 0 ? (
+            {eventParticipants.attending.length === 0 && eventParticipants.pending.length === 0 && eventParticipants.notAttending.length === 0 && eventParticipants.notVoted.length === 0 && (!selectedEventForParticipants?.guestParticipants || selectedEventForParticipants.guestParticipants.length === 0) ? (
               <p className="no-participants">No hay participantes registrados aún</p>
             ) : (
               <div className="participants-list">
                 {/* Grupo: Asisten */}
-                {eventParticipants.attending.length > 0 && (
+                {(eventParticipants.attending.length > 0 || (selectedEventForParticipants?.guestParticipants && selectedEventForParticipants.guestParticipants.length > 0)) && (
                   <div className="participant-group">
-                    <h3 className="group-title attending">✓ Asisten ({eventParticipants.attending.length})</h3>
+                    <h3 className="group-title attending">✓ Asisten ({eventParticipants.attending.length + (selectedEventForParticipants?.guestParticipants?.length || 0)})</h3>
                     {eventParticipants.attending.map((participant) => (
                       <div key={participant.id} className="participant-item">
                         <div className="participant-info">
@@ -1155,6 +1172,53 @@ const Home = () => {
                         </div>
                       </div>
                     ))}
+                    
+                    {/* Invitados sin cuenta */}
+                    {selectedEventForParticipants?.guestParticipants && selectedEventForParticipants.guestParticipants.length > 0 && (
+                      <>
+                        {eventParticipants.attending.length > 0 && (
+                          <div style={{
+                            borderTop: '1px dashed #dee2e6',
+                            margin: '12px 0',
+                            paddingTop: '12px'
+                          }}>
+                            <div style={{
+                              fontSize: '13px',
+                              color: '#666',
+                              fontWeight: '600',
+                              marginBottom: '8px',
+                              fontStyle: 'italic'
+                            }}>
+                              Invitados sin cuenta:
+                            </div>
+                          </div>
+                        )}
+                        {selectedEventForParticipants.guestParticipants.map((guestName, index) => (
+                          <div key={`guest-${index}`} className="participant-item">
+                            <div className="participant-info">
+                              <div className="participant-name" style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px'
+                              }}>
+                                <span style={{ fontSize: '16px' }}>👤</span>
+                                <span>{guestName}</span>
+                                <span style={{
+                                  fontSize: '11px',
+                                  color: '#888',
+                                  fontStyle: 'italic',
+                                  backgroundColor: '#f0f0f0',
+                                  padding: '2px 6px',
+                                  borderRadius: '4px'
+                                }}>
+                                  invitado
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </>
+                    )}
                   </div>
                 )}
 

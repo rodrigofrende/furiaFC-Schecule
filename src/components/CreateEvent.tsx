@@ -38,6 +38,10 @@ const CreateEvent = ({ onEventCreated, editingEvent, isOpen, onClose }: CreateEv
   const [newRivalName, setNewRivalName] = useState('');
   const [savingRival, setSavingRival] = useState(false);
 
+  // Guest participants states
+  const [guestParticipants, setGuestParticipants] = useState<string[]>([]);
+  const [newGuestName, setNewGuestName] = useState('');
+
   // Load rivals on mount
   useEffect(() => {
     loadRivals();
@@ -62,6 +66,9 @@ const CreateEvent = ({ onEventCreated, editingEvent, isOpen, onClose }: CreateEv
       setIsRecurring(editingEvent.isRecurring || false);
       setRecurringType(editingEvent.recurringType || 'weekly');
       setSuspended(editingEvent.suspended || false);
+      
+      // Cargar invitados
+      setGuestParticipants(editingEvent.guestParticipants || []);
       
       // Cargar fecha de finalización de eventos recurrentes
       if (editingEvent.recurringEndDate) {
@@ -205,6 +212,28 @@ const CreateEvent = ({ onEventCreated, editingEvent, isOpen, onClose }: CreateEv
     setRecurringType('weekly');
     setRecurringEndDate('');
     setSuspended(false);
+    setGuestParticipants([]);
+    setNewGuestName('');
+  };
+
+  const handleAddGuest = () => {
+    const trimmedName = newGuestName.trim();
+    if (!trimmedName) {
+      alert('⚠️ Por favor ingresa el nombre del invitado');
+      return;
+    }
+    
+    if (guestParticipants.includes(trimmedName)) {
+      alert('⚠️ Este invitado ya está en la lista');
+      return;
+    }
+    
+    setGuestParticipants([...guestParticipants, trimmedName]);
+    setNewGuestName('');
+  };
+
+  const handleRemoveGuest = (guestName: string) => {
+    setGuestParticipants(guestParticipants.filter(name => name !== guestName));
   };
 
   const handleSubmit = async () => {
@@ -255,6 +284,13 @@ const CreateEvent = ({ onEventCreated, editingEvent, isOpen, onClose }: CreateEv
         if (!suspended && editingEvent.suspended) {
           updateData.suspendedBy = deleteField();
           updateData.suspendedAt = deleteField();
+        }
+        
+        // Update guest participants
+        if (guestParticipants.length > 0) {
+          updateData.guestParticipants = guestParticipants;
+        } else {
+          updateData.guestParticipants = deleteField();
         }
         
         // Add or remove rival info based on event type
@@ -329,6 +365,11 @@ const CreateEvent = ({ onEventCreated, editingEvent, isOpen, onClose }: CreateEv
               eventData.rivalName = rivalInfo.name;
             }
             
+            // Add guest participants if any
+            if (guestParticipants.length > 0) {
+              eventData.guestParticipants = [...guestParticipants];
+            }
+            
             eventsToCreate.push(eventData);
             
             if (effectiveRecurringType === 'weekly') {
@@ -354,6 +395,11 @@ const CreateEvent = ({ onEventCreated, editingEvent, isOpen, onClose }: CreateEv
           if (rivalInfo) {
             eventData.rivalId = selectedRivalId;
             eventData.rivalName = rivalInfo.name;
+          }
+          
+          // Add guest participants if any
+          if (guestParticipants.length > 0) {
+            eventData.guestParticipants = [...guestParticipants];
           }
           
           eventsToCreate.push(eventData);
@@ -698,6 +744,109 @@ const CreateEvent = ({ onEventCreated, editingEvent, isOpen, onClose }: CreateEv
               />
               <span className="char-count">{description.length}/80</span>
             </div>
+
+            {/* Sección de invitados - solo para admins y solo para eventos con participantes */}
+            {user?.role === 'ADMIN' && eventType !== 'BIRTHDAY' && (
+              <div className="form-group">
+                <label>Invitados sin cuenta:</label>
+                <div className="info-box" style={{ 
+                  padding: '10px', 
+                  backgroundColor: '#f0f8ff', 
+                  border: '1px solid #2196F3',
+                  borderRadius: '6px',
+                  fontSize: '13px',
+                  color: '#0d47a1',
+                  marginBottom: '12px'
+                }}>
+                  👥 Agrega personas que asistirán pero no tienen cuenta en el sistema. Se sumarán al conteo total de participantes.
+                </div>
+                
+                <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
+                  <input
+                    type="text"
+                    value={newGuestName}
+                    onChange={(e) => setNewGuestName(e.target.value)}
+                    placeholder="Nombre del invitado"
+                    maxLength={30}
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleAddGuest();
+                      }
+                    }}
+                    style={{ flex: 1 }}
+                  />
+                  <button
+                    type="button"
+                    onClick={handleAddGuest}
+                    className="btn-primary"
+                    style={{ 
+                      minWidth: 'auto', 
+                      padding: '8px 16px',
+                      fontSize: '14px'
+                    }}
+                  >
+                    ➕ Agregar
+                  </button>
+                </div>
+
+                {guestParticipants.length > 0 && (
+                  <div className="guest-participants-list" style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '8px',
+                    marginTop: '12px'
+                  }}>
+                    {guestParticipants.map((guestName, index) => (
+                      <div
+                        key={index}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          padding: '10px 12px',
+                          backgroundColor: '#f8f9fa',
+                          borderRadius: '6px',
+                          border: '1px solid #dee2e6'
+                        }}
+                      >
+                        <span style={{ 
+                          fontSize: '14px',
+                          color: '#333',
+                          fontWeight: '500'
+                        }}>
+                          👤 {guestName}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveGuest(guestName)}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            cursor: 'pointer',
+                            fontSize: '18px',
+                            color: '#dc3545',
+                            padding: '0 4px',
+                            lineHeight: '1'
+                          }}
+                          title="Eliminar invitado"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ))}
+                    <div style={{
+                      fontSize: '13px',
+                      color: '#666',
+                      fontStyle: 'italic',
+                      marginTop: '4px'
+                    }}>
+                      Total de invitados: {guestParticipants.length}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Opción de suspender evento - solo para admins y solo al editar */}
             {editingEvent && user?.role === 'ADMIN' && (

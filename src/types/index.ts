@@ -44,6 +44,7 @@ export interface Event {
   suspended?: boolean; // Si el evento está suspendido
   suspendedBy?: string; // ID del admin que suspendió el evento
   suspendedAt?: Date; // Fecha de suspensión
+  guestParticipants?: string[]; // Nombres de participantes invitados sin cuenta
 }
 
 export type AttendanceStatus = 'attending' | 'not-attending' | 'pending' | 'not-voted';
