@@ -139,6 +139,20 @@
   gap: var(--space-sm);
 }
 
+.match-header-left {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm);
+  flex: 1;
+}
+
+.match-header-right {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
 .match-date {
   font-family: var(--font-heading);
   font-weight: var(--weight-semibold);
@@ -153,6 +167,31 @@
   align-items: center;
   gap: var(--space-xs);
   opacity: 0.9;
+}
+
+/* Match type badges */
+.match-type-badge {
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  transition: all 0.2s ease;
+}
+
+.match-type-friendly {
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  color: #92400e;
+  border: 1px solid #f59e0b;
+}
+
+.match-type-tournament {
+  background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+  color: #1e40af;
+  border: 1px solid #3b82f6;
 }
 
 /* Match Score Section */
@@ -231,6 +270,20 @@
   font-size: var(--text-sm);
   font-style: italic;
   background: #f9fafb;
+}
+
+/* Friendly match badge */
+.friendly-match-badge {
+  text-align: center;
+  padding: var(--space-sm) var(--space-md);
+  margin: var(--space-sm) var(--space-lg);
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  border: 2px solid #f59e0b;
+  border-radius: var(--radius-md);
+  color: #92400e;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  font-style: italic;
 }
 
 /* Match Details - Stats Cards Layout */

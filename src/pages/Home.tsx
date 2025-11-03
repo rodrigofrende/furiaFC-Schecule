@@ -170,6 +170,7 @@ const Home = () => {
             originalEventId: data.originalEventId,
             rivalId: data.rivalId || undefined,
             rivalName: data.rivalName || undefined,
+            isFriendly: data.isFriendly || false,
             suspended: data.suspended || false,
             suspendedBy: data.suspendedBy,
             suspendedAt: data.suspendedAt instanceof Timestamp ? data.suspendedAt.toDate() : (data.suspendedAt ? new Date(data.suspendedAt) : undefined),
@@ -783,8 +784,16 @@ const Home = () => {
               <div key={event.id} className="event-card">
                 <div className="event-header">
                   <div className="event-type">
-                    {event.type === 'MATCH' ? '⚽ Partido' 
-                      : event.type === 'TRAINING' ? '🏃 Entrenamiento'
+                    {event.type === 'MATCH' ? (
+                      <>
+                        ⚽ Partido
+                        {event.isFriendly ? (
+                          <span className="match-type-badge match-type-friendly">AMISTOSO</span>
+                        ) : (
+                          <span className="match-type-badge match-type-tournament">TORNEO</span>
+                        )}
+                      </>
+                    ) : event.type === 'TRAINING' ? '🏃 Entrenamiento'
                       : event.type === 'BIRTHDAY' ? '🎂 Cumpleaños'
                       : '⭐ Personalizado'}
                   </div>

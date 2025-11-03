@@ -28,6 +28,7 @@ const CreateEvent = ({ onEventCreated, editingEvent, isOpen, onClose }: CreateEv
   const [recurringEndDate, setRecurringEndDate] = useState('');
   const [loading, setLoading] = useState(false);
   const [suspended, setSuspended] = useState(false);
+  const [isFriendly, setIsFriendly] = useState(false);
   
   // Rival selection states
   const [rivals, setRivals] = useState<Rival[]>([]);
@@ -66,6 +67,7 @@ const CreateEvent = ({ onEventCreated, editingEvent, isOpen, onClose }: CreateEv
       setIsRecurring(editingEvent.isRecurring || false);
       setRecurringType(editingEvent.recurringType || 'weekly');
       setSuspended(editingEvent.suspended || false);
+      setIsFriendly(editingEvent.isFriendly || false);
       
       // Cargar invitados
       setGuestParticipants(editingEvent.guestParticipants || []);
@@ -212,6 +214,7 @@ const CreateEvent = ({ onEventCreated, editingEvent, isOpen, onClose }: CreateEv
     setRecurringType('weekly');
     setRecurringEndDate('');
     setSuspended(false);
+    setIsFriendly(false);
     setGuestParticipants([]);
     setNewGuestName('');
   };
@@ -300,10 +303,13 @@ const CreateEvent = ({ onEventCreated, editingEvent, isOpen, onClose }: CreateEv
             updateData.rivalId = selectedRivalId;
             updateData.rivalName = rival.name;
           }
+          // Guardar isFriendly solo para partidos
+          updateData.isFriendly = isFriendly || false;
         } else {
           // Si no es MATCH o no hay rival seleccionado, eliminar los campos
           updateData.rivalId = deleteField();
           updateData.rivalName = deleteField();
+          updateData.isFriendly = deleteField();
         }
         
         // Si es recurrente, agregar el tipo; si no, eliminarlo del documento
@@ -363,6 +369,8 @@ const CreateEvent = ({ onEventCreated, editingEvent, isOpen, onClose }: CreateEv
             if (rivalInfo) {
               eventData.rivalId = selectedRivalId;
               eventData.rivalName = rivalInfo.name;
+              // Guardar isFriendly solo para partidos
+              eventData.isFriendly = isFriendly || false;
             }
             
             // Add guest participants if any
@@ -395,6 +403,8 @@ const CreateEvent = ({ onEventCreated, editingEvent, isOpen, onClose }: CreateEv
           if (rivalInfo) {
             eventData.rivalId = selectedRivalId;
             eventData.rivalName = rivalInfo.name;
+            // Guardar isFriendly solo para partidos
+            eventData.isFriendly = isFriendly || false;
           }
           
           // Add guest participants if any
@@ -547,43 +557,63 @@ const CreateEvent = ({ onEventCreated, editingEvent, isOpen, onClose }: CreateEv
             </div>
 
             {eventType === 'MATCH' && (
-              <div className="form-group">
-                <label>Rival:</label>
-                <div className="rival-selector">
-                  <select
-                    value={selectedRivalId}
-                    onChange={(e) => setSelectedRivalId(e.target.value)}
-                    className="rival-select"
-                  >
-                    <option value="">Seleccionar rival</option>
-                    {rivals.map((rival) => (
-                      <option key={rival.id} value={rival.id}>
-                        {rival.name}
-                      </option>
-                    ))}
-                  </select>
-                  <button
-                    type="button"
-                    onClick={handleEditRivalClick}
-                    className="btn-edit-rival"
-                    title="Editar rival"
-                    disabled={!selectedRivalId}
-                  >
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-                      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
-                    </svg>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setShowAddRivalModal(true)}
-                    className="btn-add-rival"
-                    title="Agregar nuevo rival"
-                  >
-                    +
-                  </button>
+              <>
+                <div className="form-group">
+                  <label>Rival:</label>
+                  <div className="rival-selector">
+                    <select
+                      value={selectedRivalId}
+                      onChange={(e) => setSelectedRivalId(e.target.value)}
+                      className="rival-select"
+                    >
+                      <option value="">Seleccionar rival</option>
+                      {rivals.map((rival) => (
+                        <option key={rival.id} value={rival.id}>
+                          {rival.name}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      onClick={handleEditRivalClick}
+                      className="btn-edit-rival"
+                      title="Editar rival"
+                      disabled={!selectedRivalId}
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                      </svg>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowAddRivalModal(true)}
+                      className="btn-add-rival"
+                      title="Agregar nuevo rival"
+                    >
+                      +
+                    </button>
+                  </div>
                 </div>
-              </div>
+
+                <div className="form-group">
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px', background: '#f9fafb', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
+                    <input
+                      type="checkbox"
+                      id="isFriendlyEvent"
+                      checked={isFriendly}
+                      onChange={(e) => setIsFriendly(e.target.checked)}
+                      style={{ width: '20px', height: '20px', cursor: 'pointer' }}
+                    />
+                    <label htmlFor="isFriendlyEvent" style={{ cursor: 'pointer', fontWeight: '500', fontSize: '14px', flex: 1 }}>
+                      <span style={{ display: 'block', fontWeight: '600', marginBottom: '4px' }}>🏆 Partido Amistoso</span>
+                      <span style={{ display: 'block', fontSize: '12px', color: '#6b7280', fontStyle: 'italic' }}>
+                        Si está marcado, este partido aparecerá en el historial pero NO sumará en las estadísticas (goles, asistencias, tarjetas, figura del partido)
+                      </span>
+                    </label>
+                  </div>
+                </div>
+              </>
             )}
 
             <div className="form-group">

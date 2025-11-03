@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, memo } from 'react';
-import { collection, getDocs, query, where, Timestamp, doc, setDoc, getDoc, serverTimestamp, updateDoc, orderBy, deleteDoc, writeBatch } from 'firebase/firestore';
+import { collection, getDocs, query, where, Timestamp, doc, setDoc, getDoc, serverTimestamp, updateDoc, orderBy, writeBatch } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { useAuth } from '../context/AuthContext';
 import { type MatchResult, type Goal, type Card, type CardType, type User, type Rival } from '../types';
@@ -15,6 +15,7 @@ interface ArchivedMatch {
   location?: string;
   attendance: number;
   result?: MatchResult;
+  isFriendly?: boolean; // Para partidos sin resultado, se toma del evento archivado
 }
 
 const MatchHistory = memo(() => {
@@ -45,6 +46,7 @@ const MatchHistory = memo(() => {
     cardType: CardType;
   }>>([]);
   const [figureOfTheMatchId, setFigureOfTheMatchId] = useState<string>('');
+  const [isFriendly, setIsFriendly] = useState<boolean>(false);
   const [players, setPlayers] = useState<User[]>([]);
   const [rivals, setRivals] = useState<Rival[]>([]);
   const [saving, setSaving] = useState(false);
@@ -262,6 +264,7 @@ const MatchHistory = memo(() => {
             figureOfTheMatchName: resultData.figureOfTheMatchName || undefined,
             date: resultData.date instanceof Timestamp ? resultData.date.toDate() : new Date(resultData.date),
             location: resultData.location,
+            isFriendly: resultData.isFriendly || false,
             createdAt: resultData.createdAt instanceof Timestamp ? resultData.createdAt.toDate() : new Date(resultData.createdAt),
             updatedAt: resultData.updatedAt instanceof Timestamp ? resultData.updatedAt.toDate() : new Date(resultData.updatedAt)
           };
@@ -275,7 +278,8 @@ const MatchHistory = memo(() => {
           date: eventDate,
           location: data.location,
           attendance: attendanceSnapshot.size,
-          result
+          result,
+          isFriendly: result?.isFriendly ?? (data.isFriendly || false) // Si hay resultado, usar el del resultado; si no, usar el del evento archivado
         });
       }
       
@@ -290,7 +294,7 @@ const MatchHistory = memo(() => {
     }
   }, []);
 
-  const handleEditResult = useCallback((match: ArchivedMatch) => {
+  const handleEditResult = useCallback(async (match: ArchivedMatch) => {
     setEditingMatch(match);
     
     if (match.result) {
@@ -299,6 +303,7 @@ const MatchHistory = memo(() => {
       setFuriaGoals(match.result.furiaGoals);
       setRivalGoals(match.result.rivalGoals);
       setFigureOfTheMatchId(match.result.figureOfTheMatchId || '');
+      setIsFriendly(match.result.isFriendly || false);
       setGoals(match.result.goals.map(g => ({
         playerId: g.playerId,
         playerName: g.playerName,
@@ -317,6 +322,11 @@ const MatchHistory = memo(() => {
       setFuriaGoals(0);
       setRivalGoals(0);
       setFigureOfTheMatchId('');
+      // Check if the archived event has isFriendly set
+      const eventArchiveRef = doc(db, 'events_archive', match.id);
+      const eventArchiveDoc = await getDoc(eventArchiveRef);
+      const eventIsFriendly = eventArchiveDoc.exists() ? (eventArchiveDoc.data().isFriendly || false) : false;
+      setIsFriendly(eventIsFriendly);
       setGoals([]);
       setCards([]);
     }
@@ -455,6 +465,7 @@ const MatchHistory = memo(() => {
         location: editingMatch.location,
         figureOfTheMatchId: figureOfTheMatchId || null,
         figureOfTheMatchName: figureOfTheMatchId ? players.find(p => p.id === figureOfTheMatchId)?.displayName || '' : null,
+        isFriendly: isFriendly || false,
         updatedAt: serverTimestamp()
       };
 
@@ -468,16 +479,19 @@ const MatchHistory = memo(() => {
         });
       }
 
-      // IMPORTANT: Also update the archived event with rivalId and rivalName
-      // This ensures the match card displays the correct rival
+      // IMPORTANT: Also update the archived event with rivalId, rivalName, and isFriendly
+      // This ensures the match card displays the correct rival and friendly status
       const eventArchiveRef = doc(db, 'events_archive', editingMatch.id);
       await updateDoc(eventArchiveRef, {
         rivalId: rivalId,
-        rivalName: selectedRival.name
+        rivalName: selectedRival.name,
+        isFriendly: isFriendly || false
       });
 
+      // Only update stats if this is NOT a friendly match
+      if (!isFriendly) {
         // Update goal and assist stats - Calculate difference between new and old goals
-      if (editingMatch.result) {
+        if (editingMatch.result && !editingMatch.result.isFriendly) {
         // When editing, we need to calculate the difference
         const oldGoals = editingMatch.result.goals;
         
@@ -552,9 +566,9 @@ const MatchHistory = memo(() => {
             }
           }
         }
-      } else {
-        // Creating new result - just add all goals and assists
-        for (const goal of goalsWithIds) {
+        } else if (!editingMatch.result || editingMatch.result.isFriendly) {
+          // Creating new result or editing from friendly to official - just add all goals and assists
+          for (const goal of goalsWithIds) {
           // Get player email from playerId
           const player = players.find(p => p.id === goal.playerId);
           if (player) {
@@ -587,52 +601,53 @@ const MatchHistory = memo(() => {
             }
           }
         }
-      }
+        }
 
-      // Update figure of the match stats
-      if (figureOfTheMatchId) {
-        // Get player email from figureOfTheMatchId
-        const figurePlayer = players.find(p => p.id === figureOfTheMatchId);
-        if (figurePlayer) {
-          const statsRef = doc(db, 'stats', figurePlayer.email);
-          const statsDoc = await getDoc(statsRef);
-          
-          if (statsDoc.exists()) {
-            const currentFigures = statsDoc.data().figureOfTheMatch || 0;
-            // Check if this is a new figure or a change
-            const isNewFigure = !editingMatch.result || 
-              editingMatch.result.figureOfTheMatchId !== figureOfTheMatchId;
+        // Update figure of the match stats
+        if (figureOfTheMatchId) {
+          // Get player email from figureOfTheMatchId
+          const figurePlayer = players.find(p => p.id === figureOfTheMatchId);
+          if (figurePlayer) {
+            const statsRef = doc(db, 'stats', figurePlayer.email);
+            const statsDoc = await getDoc(statsRef);
             
-            if (isNewFigure) {
-              // If there was a previous figure, decrement their count
-              const previousFigureId = editingMatch.result?.figureOfTheMatchId;
-              if (previousFigureId && previousFigureId !== figureOfTheMatchId) {
-                const oldFigurePlayer = players.find(p => p.id === previousFigureId);
-                if (oldFigurePlayer) {
-                  const oldFigureRef = doc(db, 'stats', oldFigurePlayer.email);
-                  const oldFigureDoc = await getDoc(oldFigureRef);
-                  if (oldFigureDoc.exists()) {
-                    const oldFigureCount = oldFigureDoc.data().figureOfTheMatch || 0;
-                    await updateDoc(oldFigureRef, {
-                      figureOfTheMatch: Math.max(0, oldFigureCount - 1),
-                      lastUpdated: serverTimestamp()
-                    });
+            if (statsDoc.exists()) {
+              const currentFigures = statsDoc.data().figureOfTheMatch || 0;
+              // Check if this is a new figure or a change
+              const isNewFigure = !editingMatch.result || 
+                editingMatch.result.figureOfTheMatchId !== figureOfTheMatchId ||
+                editingMatch.result.isFriendly;
+              
+              if (isNewFigure) {
+                // If there was a previous figure in an official match, decrement their count
+                const previousFigureId = editingMatch.result?.figureOfTheMatchId;
+                if (previousFigureId && previousFigureId !== figureOfTheMatchId && editingMatch.result && !editingMatch.result.isFriendly) {
+                  const oldFigurePlayer = players.find(p => p.id === previousFigureId);
+                  if (oldFigurePlayer) {
+                    const oldFigureRef = doc(db, 'stats', oldFigurePlayer.email);
+                    const oldFigureDoc = await getDoc(oldFigureRef);
+                    if (oldFigureDoc.exists()) {
+                      const oldFigureCount = oldFigureDoc.data().figureOfTheMatch || 0;
+                      await updateDoc(oldFigureRef, {
+                        figureOfTheMatch: Math.max(0, oldFigureCount - 1),
+                        lastUpdated: serverTimestamp()
+                      });
+                    }
                   }
                 }
+                
+                // Increment new figure count
+                await updateDoc(statsRef, {
+                  figureOfTheMatch: currentFigures + 1,
+                  lastUpdated: serverTimestamp()
+                });
               }
-              
-              // Increment new figure count
-              await updateDoc(statsRef, {
-                figureOfTheMatch: currentFigures + 1,
-                lastUpdated: serverTimestamp()
-              });
             }
           }
         }
-      }
 
-      // Update card stats
-      if (editingMatch.result) {
+        // Update card stats
+        if (editingMatch.result && !editingMatch.result.isFriendly) {
         // When editing, we need to calculate the difference
         const oldCards = editingMatch.result.cards || [];
         
@@ -709,9 +724,9 @@ const MatchHistory = memo(() => {
             }
           }
         }
-      } else {
-        // Creating new result - just add all cards
-        for (const card of cardsWithIds) {
+        } else if (!editingMatch.result || editingMatch.result.isFriendly) {
+          // Creating new result or editing from friendly to official - just add all cards
+          for (const card of cardsWithIds) {
           // Get player email from playerId
           const player = players.find(p => p.id === card.playerId);
           if (player) {
@@ -729,6 +744,85 @@ const MatchHistory = memo(() => {
                 const currentRedCards = statsDoc.data().redCards || 0;
                 await updateDoc(statsRef, {
                   redCards: currentRedCards + 1,
+                  lastUpdated: serverTimestamp()
+                });
+              }
+            }
+          }
+        }
+        }
+      } else {
+        // This is a friendly match - need to remove stats if it was previously official
+        if (editingMatch.result && !editingMatch.result.isFriendly) {
+          // Was official, now is friendly - need to remove all stats
+          const oldGoals = editingMatch.result.goals || [];
+          const oldCards = editingMatch.result.cards || [];
+          const oldFigureId = editingMatch.result.figureOfTheMatchId;
+
+          // Remove goal stats
+          for (const goal of oldGoals) {
+            const player = players.find(p => p.id === goal.playerId);
+            if (player) {
+              const statsRef = doc(db, 'stats', player.email);
+              const statsDoc = await getDoc(statsRef);
+              if (statsDoc.exists()) {
+                const currentGoals = statsDoc.data().goals || 0;
+                await updateDoc(statsRef, {
+                  goals: Math.max(0, currentGoals - 1),
+                  lastUpdated: serverTimestamp()
+                });
+              }
+            }
+            if (goal.assistPlayerId) {
+              const assistPlayer = players.find(p => p.id === goal.assistPlayerId);
+              if (assistPlayer) {
+                const assistStatsRef = doc(db, 'stats', assistPlayer.email);
+                const assistStatsDoc = await getDoc(assistStatsRef);
+                if (assistStatsDoc.exists()) {
+                  const currentAssists = assistStatsDoc.data().assists || 0;
+                  await updateDoc(assistStatsRef, {
+                    assists: Math.max(0, currentAssists - 1),
+                    lastUpdated: serverTimestamp()
+                  });
+                }
+              }
+            }
+          }
+
+          // Remove card stats
+          for (const card of oldCards) {
+            const player = players.find(p => p.id === card.playerId);
+            if (player) {
+              const statsRef = doc(db, 'stats', player.email);
+              const statsDoc = await getDoc(statsRef);
+              if (statsDoc.exists()) {
+                if (card.cardType === 'yellow') {
+                  const currentYellowCards = statsDoc.data().yellowCards || 0;
+                  await updateDoc(statsRef, {
+                    yellowCards: Math.max(0, currentYellowCards - 1),
+                    lastUpdated: serverTimestamp()
+                  });
+                } else if (card.cardType === 'red') {
+                  const currentRedCards = statsDoc.data().redCards || 0;
+                  await updateDoc(statsRef, {
+                    redCards: Math.max(0, currentRedCards - 1),
+                    lastUpdated: serverTimestamp()
+                  });
+                }
+              }
+            }
+          }
+
+          // Remove figure of the match stat
+          if (oldFigureId) {
+            const oldFigurePlayer = players.find(p => p.id === oldFigureId);
+            if (oldFigurePlayer) {
+              const oldFigureRef = doc(db, 'stats', oldFigurePlayer.email);
+              const oldFigureDoc = await getDoc(oldFigureRef);
+              if (oldFigureDoc.exists()) {
+                const oldFigureCount = oldFigureDoc.data().figureOfTheMatch || 0;
+                await updateDoc(oldFigureRef, {
+                  figureOfTheMatch: Math.max(0, oldFigureCount - 1),
                   lastUpdated: serverTimestamp()
                 });
               }
@@ -767,7 +861,7 @@ const MatchHistory = memo(() => {
     } finally {
       setSaving(false);
     }
-  }, [editingMatch, rivalId, rivals, furiaGoals, rivalGoals, goals, cards, figureOfTheMatchId, players, loadMatches]);
+  }, [editingMatch, rivalId, rivals, furiaGoals, rivalGoals, goals, cards, figureOfTheMatchId, isFriendly, players, loadMatches]);
 
   const formatDate = useCallback((date: Date) => {
     return date.toLocaleDateString('es-AR', {
@@ -923,10 +1017,19 @@ const MatchHistory = memo(() => {
             return (
               <div key={match.id} className="match-card">
                 <div className="match-card-header">
-                  <span className="match-date">{formatDate(match.date)}</span>
-                  {match.location && (
-                    <span className="match-location">📍 {match.location}</span>
-                  )}
+                  <div className="match-header-left">
+                    <span className="match-date">{formatDate(match.date)}</span>
+                    {match.location && (
+                      <span className="match-location">📍 {match.location}</span>
+                    )}
+                  </div>
+                  <div className="match-header-right">
+                    {match.isFriendly ? (
+                      <span className="match-type-badge match-type-friendly">AMISTOSO</span>
+                    ) : (
+                      <span className="match-type-badge match-type-tournament">TORNEO</span>
+                    )}
+                  </div>
                 </div>
 
                 <div className="match-score-section">
@@ -948,6 +1051,12 @@ const MatchHistory = memo(() => {
                     </div>
                   </div>
                 </div>
+
+                {hasResult && match.result!.isFriendly && (
+                  <div className="friendly-match-badge">
+                    🏆 Partido Amistoso (No suma en estadísticas)
+                  </div>
+                )}
 
                 {!hasResult && (
                   <div className="match-no-result">
@@ -1244,7 +1353,28 @@ const MatchHistory = memo(() => {
                     </option>
                   ))}
                 </select>
-                <p className="figure-info">💡 La figura del partido suma 1 punto en estadísticas</p>
+                <p className="figure-info">
+                  💡 La figura del partido suma 1 punto en estadísticas{isFriendly ? ' (no aplica en partidos amistosos)' : ''}
+                </p>
+              </div>
+            </div>
+
+            <div className="result-editor-section">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px', background: '#f9fafb', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
+                <input
+                  type="checkbox"
+                  id="isFriendly"
+                  checked={isFriendly}
+                  onChange={(e) => setIsFriendly(e.target.checked)}
+                  disabled={saving}
+                  style={{ width: '20px', height: '20px', cursor: saving ? 'not-allowed' : 'pointer' }}
+                />
+                <label htmlFor="isFriendly" style={{ cursor: saving ? 'not-allowed' : 'pointer', fontWeight: '500', fontSize: '14px', flex: 1 }}>
+                  <span style={{ display: 'block', fontWeight: '600', marginBottom: '4px' }}>Partido Amistoso</span>
+                  <span style={{ display: 'block', fontSize: '12px', color: '#6b7280', fontStyle: 'italic' }}>
+                    Si está marcado, este partido aparecerá en el historial pero NO sumará en las estadísticas (goles, asistencias, tarjetas, figura del partido)
+                  </span>
+                </label>
               </div>
             </div>
 

@@ -35,6 +35,7 @@ export interface Event {
   location?: string;
   rivalId?: string; // Para eventos tipo MATCH
   rivalName?: string; // Para eventos tipo MATCH
+  isFriendly?: boolean; // Para eventos tipo MATCH - si es true, NO suma en estadísticas
   createdBy: string;
   createdAt: Date;
   isRecurring?: boolean;
@@ -119,6 +120,7 @@ export interface MatchResult {
   figureOfTheMatchName?: string; // Player name of the figure of the match
   date: Date;
   location?: string;
+  isFriendly?: boolean; // Si es true, este partido NO suma en estadísticas
   createdAt: Date;
   updatedAt: Date;
 }
