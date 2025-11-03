@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, memo } from 'react';
-import { collection, getDocs, query, where, Timestamp, doc, setDoc, getDoc, serverTimestamp, updateDoc, orderBy } from 'firebase/firestore';
+import { collection, getDocs, query, where, Timestamp, doc, setDoc, getDoc, serverTimestamp, updateDoc, orderBy, deleteDoc, writeBatch } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { useAuth } from '../context/AuthContext';
 import { type MatchResult, type Goal, type Card, type CardType, type User, type Rival } from '../types';
@@ -778,6 +778,50 @@ const MatchHistory = memo(() => {
     });
   }, []);
 
+  const handleDeleteMatch = useCallback(async (match: ArchivedMatch) => {
+    if (!window.confirm(`¿Estás seguro de que quieres eliminar este partido?\n\n${formatDate(match.date)}\nFURIA vs ${match.rivalName}\n\nEsta acción no se puede deshacer y eliminará:\n- El evento archivado\n- Las asistencias relacionadas\n- El resultado del partido (si existe)`)) {
+      return;
+    }
+
+    try {
+      const batch = writeBatch(db);
+
+      // 1. Delete archived event
+      const eventArchiveRef = doc(db, 'events_archive', match.id);
+      batch.delete(eventArchiveRef);
+
+      // 2. Delete related archived attendances
+      const attendancesArchiveRef = collection(db, 'attendances_archive');
+      const attendanceQuery = query(attendancesArchiveRef, where('eventId', '==', match.id));
+      const attendanceSnapshot = await getDocs(attendanceQuery);
+      
+      attendanceSnapshot.forEach((attendanceDoc) => {
+        batch.delete(attendanceDoc.ref);
+      });
+
+      // 3. Delete match result if exists
+      const resultRef = doc(db, 'match_results', match.id);
+      const resultDoc = await getDoc(resultRef);
+      if (resultDoc.exists()) {
+        batch.delete(resultRef);
+      }
+
+      await batch.commit();
+
+      alert('✅ Partido eliminado exitosamente');
+      await loadMatches();
+    } catch (error: any) {
+      console.error('Error deleting match:', error);
+      let errorMessage = '❌ Error al eliminar el partido';
+      if (error.code === 'permission-denied') {
+        errorMessage += '\n🔒 Error de permisos. Verifica las reglas de Firebase.';
+      } else if (error.message) {
+        errorMessage += '\n' + error.message;
+      }
+      alert(errorMessage);
+    }
+  }, [formatDate, loadMatches]);
+
   // Filter matches based on selected filters - memoized for better performance
   const filteredMatches = useMemo(() => matches.filter((match) => {
     // Filter by rival
@@ -1038,6 +1082,13 @@ const MatchHistory = memo(() => {
                       className="btn-edit-result"
                     >
                       {hasResult ? '✏️ Editar Resultado' : '➕ Ingresar Resultado'}
+                    </button>
+                    <button 
+                      onClick={() => handleDeleteMatch(match)}
+                      className="btn-delete-match"
+                      title="Eliminar partido"
+                    >
+                      🗑️ Eliminar Evento
                     </button>
                   </div>
                 )}

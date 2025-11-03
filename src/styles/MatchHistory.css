@@ -401,6 +401,9 @@
   padding: var(--space-md);
   border-top: 1px solid #e5e7eb;
   background: white;
+  display: flex;
+  flex-direction: row;
+  gap: var(--space-sm);
 }
 
 .btn-edit-result {
@@ -420,6 +423,39 @@
   align-items: center;
   justify-content: center;
   gap: var(--space-sm);
+  transition: all var(--transition-base);
+}
+
+.btn-edit-result:hover {
+  background: linear-gradient(135deg, #1e3a8a 0%, var(--color-furia-blue) 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(30, 64, 175, 0.3);
+}
+
+.btn-delete-match {
+  width: 100%;
+  padding: var(--space-md);
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  color: white;
+  border: none;
+  border-radius: var(--radius-md);
+  font-family: var(--font-body);
+  font-weight: var(--weight-bold);
+  font-size: var(--text-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  transition: all var(--transition-base);
+}
+
+.btn-delete-match:hover {
+  background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3);
 }
 
 /* Result Editor Modal */
