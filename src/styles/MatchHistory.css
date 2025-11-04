@@ -420,21 +420,35 @@
 .stat-assist-badge {
   display: inline-flex;
   align-items: center;
-  padding: 3px 8px;
-  background: #e0f2fe;
-  border: 1px solid #bae6fd;
-  border-radius: 10px;
-  font-size: 0.7rem;
+  padding: 4px 10px;
+  background: linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%);
+  border: 1px solid #7dd3fc;
+  border-radius: 12px;
+  font-size: 0.75rem;
   color: #0369a1;
   font-weight: var(--weight-medium);
   white-space: nowrap;
+  gap: 4px;
 }
 
-.stat-assist-badge::before {
-  content: "Asist: ";
+.stat-assist-badge .assist-label {
   color: #64748b;
-  margin-right: 2px;
   font-weight: var(--weight-semibold);
+  font-size: 0.7rem;
+}
+
+.stat-assist-badge .assist-name {
+  color: #0369a1;
+  font-weight: var(--weight-semibold);
+}
+
+.stat-assist-badge .assist-count {
+  color: #0284c7;
+  font-weight: var(--weight-bold);
+  background: rgba(255, 255, 255, 0.6);
+  padding: 1px 5px;
+  border-radius: 8px;
+  font-size: 0.7rem;
 }
 
 /* Cards - Icons inline */

@@ -1116,33 +1116,45 @@ const MatchHistory = memo(() => {
                                   acc[goal.playerId] = {
                                     playerName: goal.playerName,
                                     count: 0,
-                                    assists: []
+                                    assists: new Map<string, number>()
                                   };
                                 }
                                 acc[goal.playerId].count++;
                                 if (goal.assistPlayerName) {
-                                  acc[goal.playerId].assists.push(goal.assistPlayerName);
+                                  const currentCount = acc[goal.playerId].assists.get(goal.assistPlayerName) || 0;
+                                  acc[goal.playerId].assists.set(goal.assistPlayerName, currentCount + 1);
                                 }
                                 return acc;
-                              }, {} as Record<string, { playerName: string; count: number; assists: string[] }>);
+                              }, {} as Record<string, { playerName: string; count: number; assists: Map<string, number> }>);
 
-                              return Object.entries(goalsByPlayer).map(([playerId, data]) => (
-                                <div key={playerId} className="stat-item">
-                                  <div className="stat-main">
-                                    <span className="stat-number-match">{data.count}</span>
-                                    <span className="stat-player">{data.playerName}</span>
-                                  </div>
-                                  {data.assists.length > 0 && (
-                                    <div className="stat-assists">
-                                      {data.assists.map((assist, idx) => (
-                                        <span key={idx} className="stat-assist-badge">
-                                          {assist}
-                                        </span>
-                                      ))}
+                              return Object.entries(goalsByPlayer).map(([playerId, data]) => {
+                                // Convert Map to array of [name, count] pairs
+                                const assistsArray = Array.from(data.assists.entries());
+                                
+                                return (
+                                  <div key={playerId} className="stat-item">
+                                    <div className="stat-main">
+                                      <span className="stat-number-match">{data.count}</span>
+                                      <span className="stat-player">{data.playerName}</span>
                                     </div>
-                                  )}
-                                </div>
-                              ));
+                                    {assistsArray.length > 0 && (
+                                      <div className="stat-assists">
+                                        {assistsArray.map(([assistName, assistCount], idx) => (
+                                          <span 
+                                            key={idx} 
+                                            className="stat-assist-badge" 
+                                            title={`${assistName}: ${assistCount} asistencia${assistCount > 1 ? 's' : ''}`}
+                                          >
+                                            <span className="assist-label">Asist:</span>
+                                            <span className="assist-name">{assistName}</span>
+                                            <span className="assist-count">{assistCount}</span>
+                                          </span>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              });
                             })()}
                           </div>
                         </div>
