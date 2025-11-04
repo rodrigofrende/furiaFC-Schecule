@@ -350,14 +350,23 @@ const MatchHistory = memo(() => {
   const handleGoalChange = useCallback((index: number, field: 'playerId' | 'assistPlayerId', value: string) => {
     const newGoals = [...goals];
     if (field === 'playerId') {
-      const player = players.find(p => p.id === value);
-      if (player) {
-        newGoals[index].playerId = player.id;
-        newGoals[index].playerName = player.displayName;
-        // Reset assist if it's the same player
-        if (newGoals[index].assistPlayerId === player.id) {
-          delete newGoals[index].assistPlayerId;
-          delete newGoals[index].assistPlayerName;
+      // Check if it's an invited player (guest)
+      if (value === 'INVITADO') {
+        newGoals[index].playerId = 'INVITADO';
+        newGoals[index].playerName = 'Invitado';
+        // Reset assist if it exists
+        delete newGoals[index].assistPlayerId;
+        delete newGoals[index].assistPlayerName;
+      } else {
+        const player = players.find(p => p.id === value);
+        if (player) {
+          newGoals[index].playerId = player.id;
+          newGoals[index].playerName = player.displayName;
+          // Reset assist if it's the same player
+          if (newGoals[index].assistPlayerId === player.id) {
+            delete newGoals[index].assistPlayerId;
+            delete newGoals[index].assistPlayerName;
+          }
         }
       }
     } else if (field === 'assistPlayerId') {
@@ -495,23 +504,27 @@ const MatchHistory = memo(() => {
         // When editing, we need to calculate the difference
         const oldGoals = editingMatch.result.goals;
         
-        // Count how many goals each player had before
+        // Count how many goals each player had before (excluding INVITADO)
         const oldGoalCounts = new Map<string, number>();
         const oldAssistCounts = new Map<string, number>();
         
         oldGoals.forEach(g => {
-          oldGoalCounts.set(g.playerId, (oldGoalCounts.get(g.playerId) || 0) + 1);
+          if (g.playerId !== 'INVITADO') {
+            oldGoalCounts.set(g.playerId, (oldGoalCounts.get(g.playerId) || 0) + 1);
+          }
           if (g.assistPlayerId) {
             oldAssistCounts.set(g.assistPlayerId, (oldAssistCounts.get(g.assistPlayerId) || 0) + 1);
           }
         });
         
-        // Count how many goals each player has now
+        // Count how many goals each player has now (excluding INVITADO)
         const newGoalCounts = new Map<string, number>();
         const newAssistCounts = new Map<string, number>();
         
         goalsWithIds.forEach(g => {
-          newGoalCounts.set(g.playerId, (newGoalCounts.get(g.playerId) || 0) + 1);
+          if (g.playerId !== 'INVITADO') {
+            newGoalCounts.set(g.playerId, (newGoalCounts.get(g.playerId) || 0) + 1);
+          }
           if (g.assistPlayerId) {
             newAssistCounts.set(g.assistPlayerId, (newAssistCounts.get(g.assistPlayerId) || 0) + 1);
           }
@@ -569,6 +582,11 @@ const MatchHistory = memo(() => {
         } else if (!editingMatch.result || editingMatch.result.isFriendly) {
           // Creating new result or editing from friendly to official - just add all goals and assists
           for (const goal of goalsWithIds) {
+          // Skip INVITADO goals - they don't count towards stats
+          if (goal.playerId === 'INVITADO') {
+            continue;
+          }
+          
           // Get player email from playerId
           const player = players.find(p => p.id === goal.playerId);
           if (player) {
@@ -759,8 +777,12 @@ const MatchHistory = memo(() => {
           const oldCards = editingMatch.result.cards || [];
           const oldFigureId = editingMatch.result.figureOfTheMatchId;
 
-          // Remove goal stats
+          // Remove goal stats (excluding INVITADO)
           for (const goal of oldGoals) {
+            if (goal.playerId === 'INVITADO') {
+              continue;
+            }
+            
             const player = players.find(p => p.id === goal.playerId);
             if (player) {
               const statsRef = doc(db, 'stats', player.email);
@@ -1380,6 +1402,11 @@ const MatchHistory = memo(() => {
 
             <div className="result-editor-section">
               <h3>⚽ Goles de FURIA ({goals.length}/{furiaGoals})</h3>
+              {goals.length !== furiaGoals && furiaGoals > 0 && (
+                <div className="goals-validation-warning">
+                  ⚠️ Debes completar todos los goles antes de guardar. Faltan {furiaGoals - goals.length} gol(es).
+                </div>
+              )}
               <div className="goals-editor" style={{ minHeight: furiaGoals > 0 ? `${furiaGoals * 80}px` : '60px' }}>
                 {furiaGoals > 0 ? (
                   <>
@@ -1392,6 +1419,9 @@ const MatchHistory = memo(() => {
                             onChange={(e) => handleGoalChange(index, 'playerId', e.target.value)}
                             disabled={saving}
                           >
+                            {isFriendly && (
+                              <option value="INVITADO">Invitado</option>
+                            )}
                             {players.map((player) => (
                               <option key={player.id} value={player.id}>
                                 {player.displayName}
@@ -1405,7 +1435,8 @@ const MatchHistory = memo(() => {
                           <select
                             value={goal.assistPlayerId || ''}
                             onChange={(e) => handleGoalChange(index, 'assistPlayerId', e.target.value)}
-                            disabled={saving}
+                            disabled={saving || goal.playerId === 'INVITADO'}
+                            title={goal.playerId === 'INVITADO' ? 'Los invitados no pueden tener asistencias' : ''}
                           >
                             <option value="">Sin asistencia</option>
                             {players
