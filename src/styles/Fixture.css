@@ -59,6 +59,14 @@
   border-bottom: 3px solid var(--color-furia-blue);
 }
 
+.fecha-header-left {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  flex: 1;
+  flex-wrap: wrap;
+}
+
 .fecha-title {
   font-size: var(--text-3xl);
   font-weight: var(--weight-bold);
@@ -66,6 +74,50 @@
   margin: 0;
   text-transform: uppercase;
   letter-spacing: 1px;
+}
+
+.fecha-status {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: 6px 14px;
+  border-radius: var(--radius-full);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  background: rgba(148, 163, 184, 0.15);
+  color: #475569;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+}
+
+.fecha-status.victory {
+  background: linear-gradient(135deg, #d4edda, #c3e6cb);
+  color: #155724;
+  border-color: #c3e6cb;
+}
+
+.fecha-status.defeat {
+  background: linear-gradient(135deg, #f8d7da, #f5c6cb);
+  color: #721c24;
+  border-color: #f5c6cb;
+}
+
+.fecha-status.draw {
+  background: linear-gradient(135deg, #fff3cd, #ffeaa7);
+  color: #856404;
+  border-color: #ffeaa7;
+}
+
+.fecha-status.pending {
+  background: linear-gradient(135deg, #e2e8f0, #f1f5f9);
+  color: #475569;
+  border-color: rgba(148, 163, 184, 0.4);
+}
+
+.fecha-status-icon {
+  font-size: var(--text-base);
+  line-height: 1;
 }
 
 .fecha-actions {
@@ -169,37 +221,6 @@
   background: var(--color-white);
   border-radius: var(--radius-sm);
   border: 2px solid var(--color-gray-lighter);
-}
-
-.match-result-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-xs);
-  padding: var(--space-xs) var(--space-md);
-  border-radius: var(--radius-full);
-  font-size: var(--text-sm);
-  font-weight: var(--weight-bold);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  margin-bottom: var(--space-md);
-}
-
-.match-result-badge.victory {
-  background: linear-gradient(135deg, #d4edda, #c3e6cb);
-  color: #155724;
-  border: 1px solid #c3e6cb;
-}
-
-.match-result-badge.defeat {
-  background: linear-gradient(135deg, #f8d7da, #f5c6cb);
-  color: #721c24;
-  border: 1px solid #f5c6cb;
-}
-
-.match-result-badge.draw {
-  background: linear-gradient(135deg, #fff3cd, #ffeaa7);
-  color: #856404;
-  border: 1px solid #ffeaa7;
 }
 
 .match-details {
@@ -438,6 +459,11 @@
     flex: 1;
   }
 
+  .fecha-status {
+    width: 100%;
+    justify-content: center;
+  }
+
   .fecha-actions {
     gap: var(--space-sm);
   }
@@ -463,11 +489,6 @@
     font-size: var(--text-2xl);
     padding: var(--space-xs) var(--space-md);
     min-width: 50px;
-  }
-
-  .match-result-badge {
-    font-size: 0.7rem;
-    padding: 4px 10px;
   }
 
   .rivals-grid {
@@ -513,11 +534,6 @@
     font-size: var(--text-xl);
     padding: 6px 12px;
     min-width: 45px;
-  }
-
-  .match-result-badge {
-    font-size: 0.65rem;
-    padding: 3px 8px;
   }
 
   .match-date,

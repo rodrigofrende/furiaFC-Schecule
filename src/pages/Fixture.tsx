@@ -384,7 +384,47 @@ const Fixture = () => {
           {fechas.map((fechaNum) => (
             <div key={fechaNum} className="fecha-card">
               <div className="fecha-header">
-                <h2 className="fecha-title">Fecha {fechaNum}</h2>
+                {(() => {
+                  const referenceFixture = fixturesByFecha[fechaNum][0];
+                  const hasScore =
+                    referenceFixture?.played &&
+                    referenceFixture.furiaGoals !== undefined &&
+                    referenceFixture.rivalGoals !== undefined;
+
+                  let statusLabel = 'Pendiente';
+                  let statusClass = 'pending';
+                  let statusIcon = '⏳';
+
+                  if (hasScore) {
+                    if (referenceFixture.furiaGoals! > referenceFixture.rivalGoals!) {
+                      statusLabel = 'Victoria';
+                      statusClass = 'victory';
+                      statusIcon = '🏆';
+                    } else if (
+                      referenceFixture.furiaGoals! < referenceFixture.rivalGoals!
+                    ) {
+                      statusLabel = 'Derrota';
+                      statusClass = 'defeat';
+                      statusIcon = '⚠️';
+                    } else {
+                      statusLabel = 'Empate';
+                      statusClass = 'draw';
+                      statusIcon = '🤝';
+                    }
+                  }
+
+                  return (
+                    <div className="fecha-header-left">
+                      <h2 className="fecha-title">Fecha {fechaNum}</h2>
+                      <span className={`fecha-status ${statusClass}`}>
+                        <span className="fecha-status-icon" aria-hidden="true">
+                          {statusIcon}
+                        </span>
+                        {statusLabel}
+                      </span>
+                    </div>
+                  );
+                })()}
                 {canEdit && (
                   <div className="fecha-actions">
                     <button
@@ -421,18 +461,6 @@ const Fixture = () => {
                       <span className="team-name">{fixture.rivalName}</span>
                     </div>
                   </div>
-                  
-                  {fixture.played && (
-                    <div className={`match-result-badge ${
-                      fixture.furiaGoals! > fixture.rivalGoals! ? 'victory' : 
-                      fixture.furiaGoals! < fixture.rivalGoals! ? 'defeat' : 
-                      'draw'
-                    }`}>
-                      {fixture.furiaGoals! > fixture.rivalGoals! ? '✓ Victoria' : 
-                       fixture.furiaGoals! < fixture.rivalGoals! ? '✗ Derrota' : 
-                       '= Empate'}
-                    </div>
-                  )}
                   
                   {(fixture.date || fixture.location) && (
                     <div className="match-details">

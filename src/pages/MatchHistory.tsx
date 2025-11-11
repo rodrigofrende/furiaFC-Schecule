@@ -1035,6 +1035,69 @@ const MatchHistory = memo(() => {
             const hasResult = !!match.result;
             const furiaWon = hasResult && match.result!.furiaGoals > match.result!.rivalGoals;
             const rivalWon = hasResult && match.result!.furiaGoals < match.result!.rivalGoals;
+            const isDraw = hasResult && !furiaWon && !rivalWon;
+
+            const figureName = hasResult ? match.result!.figureOfTheMatchName?.trim() ?? '' : '';
+            const goalsList = hasResult ? match.result!.goals ?? [] : [];
+            const cardsList = hasResult ? match.result!.cards ?? [] : [];
+
+            const totalGoals = goalsList.length;
+            const totalAssists = goalsList.reduce((acc, goal) => acc + (goal.assistPlayerId ? 1 : 0), 0);
+            const assistsMeta = totalGoals > 0
+              ? (totalAssists > 0
+                ? `${totalAssists} asistencia${totalAssists !== 1 ? 's' : ''}`
+                : 'Sin asistencias registradas')
+              : 'Sin asistencias registradas';
+
+            const totalCards = cardsList.length;
+            const totalYellowCards = cardsList.filter((card) => card.cardType === 'yellow').length;
+            const totalRedCards = cardsList.filter((card) => card.cardType === 'red').length;
+
+            const goalsByPlayer = goalsList.reduce((acc, goal) => {
+              if (!acc[goal.playerId]) {
+                acc[goal.playerId] = {
+                  playerName: goal.playerName,
+                  count: 0,
+                  assists: new Map<string, number>()
+                };
+              }
+              acc[goal.playerId].count++;
+              if (goal.assistPlayerName) {
+                const assistsMap = acc[goal.playerId].assists;
+                assistsMap.set(goal.assistPlayerName, (assistsMap.get(goal.assistPlayerName) || 0) + 1);
+              }
+              return acc;
+            }, {} as Record<string, { playerName: string; count: number; assists: Map<string, number> }>);
+
+            const cardsByPlayer = cardsList.reduce((acc, card) => {
+              if (!acc[card.playerId]) {
+                acc[card.playerId] = {
+                  playerName: card.playerName,
+                  yellow: 0,
+                  red: 0
+                };
+              }
+              if (card.cardType === 'yellow') {
+                acc[card.playerId].yellow++;
+              } else {
+                acc[card.playerId].red++;
+              }
+              return acc;
+            }, {} as Record<string, { playerName: string; yellow: number; red: number }>);
+
+            const hasFigure = Boolean(figureName);
+            const hasGoalsData = Object.keys(goalsByPlayer).length > 0;
+            const hasCardsData = Object.keys(cardsByPlayer).length > 0;
+
+            const matchOutcomeClass = furiaWon ? 'win' : rivalWon ? 'lose' : 'draw';
+            const outcomeIcon = furiaWon ? '🏆' : rivalWon ? '💔' : '🤝';
+            const outcomeLabel = furiaWon
+              ? 'Victoria de FURIA'
+              : rivalWon
+                ? `Derrota ante ${match.result!.rivalName}`
+                : 'Empate';
+            const outcomeSubtitle = `${match.result?.furiaGoals ?? 0} - ${match.result?.rivalGoals ?? 0} vs ${match.result?.rivalName ?? ''}`;
+            const goalDifference = hasResult ? Math.abs(match.result!.furiaGoals - match.result!.rivalGoals) : 0;
 
             return (
               <div key={match.id} className="match-card">
@@ -1085,52 +1148,67 @@ const MatchHistory = memo(() => {
                     Resultado no ingresado
                   </div>
                 )}
-
 {hasResult && (
-                  <div className="match-details">
-                    <div className="stats-container">
-                      {/* Figure of the Match */}
-                      {match.result!.figureOfTheMatchName && (
-                        <div className="stat-card-match stat-figure">
+                  <>
+                    <div className={`match-outcome-banner ${matchOutcomeClass}`}>
+                      <div className="outcome-main">
+                        <span className="outcome-icon" aria-hidden="true">{outcomeIcon}</span>
+                        <div className="outcome-text">
+                          <span className="outcome-title">{outcomeLabel}</span>
+                          <span className="outcome-subtitle">{outcomeSubtitle}</span>
+                        </div>
+                      </div>
+                      <div className="outcome-tags">
+                        {match.result!.isFriendly ? (
+                          <span className="outcome-chip friendly">Amistoso</span>
+                        ) : (
+                          <span className="outcome-chip official">Oficial</span>
+                        )}
+                        {!isDraw && goalDifference > 0 && (
+                          <span className="outcome-chip neutral">
+                            Dif. de gol {furiaWon ? '+' : '-'}
+                            {goalDifference}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="match-details">
+                      <div className="match-stats-divider">
+                        <span className="divider-line" />
+                        <span className="divider-label">Estadísticas del Partido</span>
+                        <span className="divider-line" />
+                      </div>
+                      <div className="stats-container">
+                        <div className={`stat-card-match stat-figure ${hasFigure ? '' : 'is-empty'}`}>
                           <div className="stat-header">
                             <span className="stat-icon">⭐</span>
                             <span className="stat-title">Figura</span>
                           </div>
-                          <div className="stat-content">
-                            <div className="stat-value">{match.result!.figureOfTheMatchName}</div>
-                          </div>
+                          {hasFigure ? (
+                            <div className="stat-content">
+                              <div className="stat-value">{figureName}</div>
+                            </div>
+                          ) : (
+                            <div className="stat-content stat-empty">
+                              Sin datos
+                            </div>
+                          )}
                         </div>
-                      )}
 
-                      {/* Goals Section */}
-                      {match.result!.goals.length > 0 ? (
-                        <div className="stat-card-match stat-goals">
+                        <div className={`stat-card-match stat-goals ${hasGoalsData ? '' : 'is-empty'}`}>
                           <div className="stat-header">
                             <span className="stat-icon">⚽</span>
-                            <span className="stat-title">Goles ({match.result!.goals.length})</span>
+                            <div className="stat-header-info">
+                              <span className="stat-title">Goles ({totalGoals})</span>
+                              <span className="stat-meta">{assistsMeta}</span>
+                            </div>
                           </div>
-                          <div className="stat-content">
-                            {(() => {
-                              const goalsByPlayer = match.result!.goals.reduce((acc, goal) => {
-                                if (!acc[goal.playerId]) {
-                                  acc[goal.playerId] = {
-                                    playerName: goal.playerName,
-                                    count: 0,
-                                    assists: new Map<string, number>()
-                                  };
-                                }
-                                acc[goal.playerId].count++;
-                                if (goal.assistPlayerName) {
-                                  const currentCount = acc[goal.playerId].assists.get(goal.assistPlayerName) || 0;
-                                  acc[goal.playerId].assists.set(goal.assistPlayerName, currentCount + 1);
-                                }
-                                return acc;
-                              }, {} as Record<string, { playerName: string; count: number; assists: Map<string, number> }>);
-
-                              return Object.entries(goalsByPlayer).map(([playerId, data]) => {
-                                // Convert Map to array of [name, count] pairs
+                          {hasGoalsData ? (
+                            <div className="stat-content">
+                              {Object.entries(goalsByPlayer).map(([playerId, data]) => {
                                 const assistsArray = Array.from(data.assists.entries());
-                                
+
                                 return (
                                   <div key={playerId} className="stat-item">
                                     <div className="stat-main">
@@ -1140,9 +1218,9 @@ const MatchHistory = memo(() => {
                                     {assistsArray.length > 0 && (
                                       <div className="stat-assists">
                                         {assistsArray.map(([assistName, assistCount], idx) => (
-                                          <span 
-                                            key={idx} 
-                                            className="stat-assist-badge" 
+                                          <span
+                                            key={idx}
+                                            className="stat-assist-badge"
                                             title={`${assistName}: ${assistCount} asistencia${assistCount > 1 ? 's' : ''}`}
                                           >
                                             <span className="assist-label">Asist:</span>
@@ -1154,48 +1232,28 @@ const MatchHistory = memo(() => {
                                     )}
                                   </div>
                                 );
-                              });
-                            })()}
-                          </div>
+                              })}
+                            </div>
+                          ) : (
+                            <div className="stat-content stat-empty">
+                              Sin datos
+                            </div>
+                          )}
                         </div>
-                      ) : match.result!.furiaGoals === 0 ? (
-                        <div className="stat-card-match stat-goals">
-                          <div className="stat-header">
-                            <span className="stat-icon">⚽</span>
-                            <span className="stat-title">Goles (0)</span>
-                          </div>
-                          <div className="stat-content stat-empty">
-                            Sin goles
-                          </div>
-                        </div>
-                      ) : null}
 
-                      {/* Cards Section */}
-                      {match.result!.cards && match.result!.cards.length > 0 && (
-                        <div className="stat-card-match stat-cards">
+                        <div className={`stat-card-match stat-cards ${hasCardsData ? '' : 'is-empty'}`}>
                           <div className="stat-header">
                             <span className="stat-icon">📋</span>
-                            <span className="stat-title">Tarjetas ({match.result!.cards.length})</span>
+                            <div className="stat-header-info">
+                              <span className="stat-title">Tarjetas ({totalCards})</span>
+                              <span className="stat-meta">
+                                🟨 {totalYellowCards} · 🟥 {totalRedCards}
+                              </span>
+                            </div>
                           </div>
-                          <div className="stat-content">
-                            {(() => {
-                              const cardsByPlayer = match.result!.cards.reduce((acc, card) => {
-                                if (!acc[card.playerId]) {
-                                  acc[card.playerId] = {
-                                    playerName: card.playerName,
-                                    yellow: 0,
-                                    red: 0
-                                  };
-                                }
-                                if (card.cardType === 'yellow') {
-                                  acc[card.playerId].yellow++;
-                                } else {
-                                  acc[card.playerId].red++;
-                                }
-                                return acc;
-                              }, {} as Record<string, { playerName: string; yellow: number; red: number }>);
-
-                              return Object.entries(cardsByPlayer).map(([playerId, data]) => (
+                          {hasCardsData ? (
+                            <div className="stat-content">
+                              {Object.entries(cardsByPlayer).map(([playerId, data]) => (
                                 <div key={playerId} className="stat-item">
                                   <div className="stat-main">
                                     <div className="stat-card-icons">
@@ -1209,13 +1267,17 @@ const MatchHistory = memo(() => {
                                     <span className="stat-player">{data.playerName}</span>
                                   </div>
                                 </div>
-                              ));
-                            })()}
-                          </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="stat-content stat-empty">
+                              Sin datos
+                            </div>
+                          )}
                         </div>
-                      )}
+                      </div>
                     </div>
-                  </div>
+                  </>
                 )}
 
                 {user?.role === 'ADMIN' && (
