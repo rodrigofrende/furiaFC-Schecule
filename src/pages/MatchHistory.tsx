@@ -3,6 +3,7 @@ import { collection, getDocs, query, where, Timestamp, doc, setDoc, getDoc, serv
 import { db } from '../config/firebase';
 import { useAuth } from '../context/AuthContext';
 import { type MatchResult, type Goal, type Card, type CardType, type User, type Rival } from '../types';
+import { type FirebaseErrorLike } from '../types/errors';
 import Modal from '../components/Modal';
 import '../styles/MatchHistory.css';
 
@@ -53,12 +54,6 @@ const MatchHistory = memo(() => {
   const [creatingNewRival, setCreatingNewRival] = useState(false);
   const [editingRival, setEditingRival] = useState(false);
   const [newRivalName, setNewRivalName] = useState('');
-
-  useEffect(() => {
-    loadMatches();
-    loadPlayers();
-    loadRivals();
-  }, []);
 
   const loadPlayers = useCallback(async () => {
     try {
@@ -145,19 +140,20 @@ const MatchHistory = memo(() => {
       setCreatingNewRival(false);
       
       alert('✅ Rival creado exitosamente');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error creating rival:', error);
       let errorMessage = '❌ Error al crear el rival';
-      if (error.code === 'permission-denied') {
+      const firebaseError = error as FirebaseErrorLike;
+      if (firebaseError.code === 'permission-denied') {
         errorMessage += '\n🔒 Error de permisos. Verifica las reglas de Firebase.';
-      } else if (error.message) {
-        errorMessage += '\n' + error.message;
+      } else if (firebaseError.message) {
+        errorMessage += '\n' + firebaseError.message;
       }
       alert(errorMessage);
     } finally {
       setSaving(false);
     }
-  }, [user?.email, rivals, rivalId, rivalName, newRivalName, loadRivals]);
+  }, [user?.email, rivals, newRivalName, loadRivals]);
 
   const handleEditRival = useCallback(async () => {
     if (!newRivalName.trim()) {
@@ -200,19 +196,20 @@ const MatchHistory = memo(() => {
       setEditingRival(false);
       
       alert('✅ Rival actualizado exitosamente');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error updating rival:', error);
       let errorMessage = '❌ Error al actualizar el rival';
-      if (error.code === 'permission-denied') {
+      const firebaseError = error as FirebaseErrorLike;
+      if (firebaseError.code === 'permission-denied') {
         errorMessage += '\n🔒 Error de permisos. Verifica las reglas de Firebase.';
-      } else if (error.message) {
-        errorMessage += '\n' + error.message;
+      } else if (firebaseError.message) {
+        errorMessage += '\n' + firebaseError.message;
       }
       alert(errorMessage);
     } finally {
       setSaving(false);
     }
-  }, [rivalId, rivals, newRivalName, rivalName, loadRivals]);
+  }, [rivalId, rivals, newRivalName, loadRivals]);
 
   const loadMatches = useCallback(async () => {
     try {
@@ -252,13 +249,13 @@ const MatchHistory = memo(() => {
             rivalName: resultData.rivalName,
             furiaGoals: resultData.furiaGoals,
             rivalGoals: resultData.rivalGoals,
-            goals: resultData.goals.map((g: any) => ({
+            goals: resultData.goals.map((g: { createdAt?: Timestamp | Date | string | number }) => ({
               ...g,
-              createdAt: g.createdAt instanceof Timestamp ? g.createdAt.toDate() : new Date(g.createdAt)
+              createdAt: g.createdAt instanceof Timestamp ? g.createdAt.toDate() : new Date(g.createdAt ?? Date.now())
             })),
-            cards: resultData.cards ? resultData.cards.map((c: any) => ({
+            cards: resultData.cards ? resultData.cards.map((c: { createdAt?: Timestamp | Date | string | number }) => ({
               ...c,
-              createdAt: c.createdAt instanceof Timestamp ? c.createdAt.toDate() : new Date(c.createdAt)
+              createdAt: c.createdAt instanceof Timestamp ? c.createdAt.toDate() : new Date(c.createdAt ?? Date.now())
             })) : [],
             figureOfTheMatchId: resultData.figureOfTheMatchId || undefined,
             figureOfTheMatchName: resultData.figureOfTheMatchName || undefined,
@@ -293,6 +290,12 @@ const MatchHistory = memo(() => {
       setLoading(false);
     }
   }, []);
+
+  useEffect(() => {
+    loadMatches();
+    loadPlayers();
+    loadRivals();
+  }, [loadMatches, loadPlayers, loadRivals]);
 
   const handleEditResult = useCallback(async (match: ArchivedMatch) => {
     setEditingMatch(match);
@@ -332,7 +335,7 @@ const MatchHistory = memo(() => {
     }
     
     setShowResultModal(true);
-  }, [players]);
+  }, []);
 
   const handleAddGoal = useCallback(() => {
     if (players.length === 0) return;
@@ -462,7 +465,7 @@ const MatchHistory = memo(() => {
       }));
 
       // Prepare result data
-      const resultData: any = {
+      const resultData: Record<string, unknown> = {
         eventId: editingMatch.id,
         rivalId: rivalId,
         rivalName: selectedRival.name,
@@ -857,28 +860,29 @@ const MatchHistory = memo(() => {
       setShowResultModal(false);
       setEditingMatch(null);
       await loadMatches();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error saving result:', error);
       
       // Mostrar error específico
       let errorMessage = '❌ Error al guardar el resultado';
-      if (error.code === 'permission-denied') {
+      const firebaseError = error as FirebaseErrorLike;
+      if (firebaseError.code === 'permission-denied') {
         errorMessage += '\n🔒 Error de permisos. Verifica las reglas de Firebase.';
-      } else if (error.code === 'not-found') {
+      } else if (firebaseError.code === 'not-found') {
         errorMessage += '\n📄 Documento no encontrado.';
-      } else if (error.code === 'unavailable') {
+      } else if (firebaseError.code === 'unavailable') {
         errorMessage += '\n🌐 No se puede conectar a Firebase.';
-      } else if (error.message) {
-        errorMessage += '\n' + error.message;
+      } else if (firebaseError.message) {
+        errorMessage += '\n' + firebaseError.message;
       }
       
       alert(errorMessage);
       
       // Re-throw para que se pueda debuggear
       console.error('Full error details:', {
-        code: error.code,
-        message: error.message,
-        stack: error.stack
+        code: firebaseError.code,
+        message: firebaseError.message,
+        stack: firebaseError.stack
       });
     } finally {
       setSaving(false);
@@ -926,13 +930,14 @@ const MatchHistory = memo(() => {
 
       alert('✅ Partido eliminado exitosamente');
       await loadMatches();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error deleting match:', error);
       let errorMessage = '❌ Error al eliminar el partido';
-      if (error.code === 'permission-denied') {
+      const firebaseError = error as FirebaseErrorLike;
+      if (firebaseError.code === 'permission-denied') {
         errorMessage += '\n🔒 Error de permisos. Verifica las reglas de Firebase.';
-      } else if (error.message) {
-        errorMessage += '\n' + error.message;
+      } else if (firebaseError.message) {
+        errorMessage += '\n' + firebaseError.message;
       }
       alert(errorMessage);
     }

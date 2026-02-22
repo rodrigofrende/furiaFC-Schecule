@@ -1,16 +1,9 @@
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { db } from '../config/firebase';
-import { collection, query, where, getDocs } from 'firebase/firestore';
-import { MASTER_PASSWORD } from '../config/allowedUsers';
+import { MASTER_PASSWORD, isMasterPasswordConfigured } from '../config/allowedUsers';
 import furiaLogo from '../assets/logo furia.png';
+import { findUserByEmail } from '../services/usersService';
 import '../styles/Login.css';
-
-interface FirestoreUser {
-  email: string;
-  role: 'ADMIN' | 'PLAYER' | 'VIEWER';
-  alias: string;
-}
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -33,22 +26,23 @@ const Login = () => {
         return;
       }
 
-      const usersRef = collection(db, 'users');
-      const q = query(usersRef, where('email', '==', email.toLowerCase()));
-      const querySnapshot = await getDocs(q);
+      const userData = await findUserByEmail(email);
 
-      if (querySnapshot.empty) {
+      if (!userData) {
         setError('Email no autorizado. Comunicate con alguien del equipo.');
         setLoading(false);
         return;
       }
 
-      const userDoc = querySnapshot.docs[0];
-      const userData = userDoc.data() as FirestoreUser;
-
       const role = userData.role || 'PLAYER';
 
       // Si es ADMIN y no hemos verificado la contraseña aún
+      if (role === 'ADMIN' && !isMasterPasswordConfigured()) {
+        setError('Acceso admin no configurado. Contactá al administrador del sistema.');
+        setLoading(false);
+        return;
+      }
+
       if (role === 'ADMIN' && !isAdminLogin) {
         setIsAdminLogin(true);
         setLoading(false);
@@ -57,7 +51,7 @@ const Login = () => {
 
       // Si es ADMIN y estamos en la segunda fase, verificar contraseña
       if (role === 'ADMIN' && isAdminLogin) {
-        if (password !== MASTER_PASSWORD) {
+        if (!MASTER_PASSWORD || password !== MASTER_PASSWORD) {
           setError('Contraseña incorrecta para administrador.');
           setLoading(false);
           return;
@@ -67,7 +61,7 @@ const Login = () => {
       // Si es PLAYER, no requiere contraseña
       const displayName = userData.alias || email.split('@')[0];
       signIn(userData.email, displayName, role);
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError('Error al iniciar sesión. Intentá de nuevo.');
       console.error(err);
     } finally {

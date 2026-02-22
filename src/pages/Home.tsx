@@ -64,6 +64,7 @@ const Home = () => {
   useEffect(() => {
     loadEvents();
     loadTotalUsers();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const loadTotalUsers = async () => {
@@ -228,7 +229,7 @@ const Home = () => {
       // First, get all events to archive them
       const eventsRef = collection(db, 'events');
       const eventsSnapshot = await getDocs(eventsRef);
-      const eventsToArchive: any[] = [];
+      const eventsToArchive: Array<{ id: string; data: Record<string, unknown> }> = [];
       
       eventsSnapshot.forEach((doc) => {
         if (eventIds.includes(doc.id)) {
@@ -242,7 +243,7 @@ const Home = () => {
       // Get all attendances for these events
       const attendancesRef = collection(db, 'attendances');
       const attendanceSnapshot = await getDocs(attendancesRef);
-      const attendancesToArchive: any[] = [];
+      const attendancesToArchive: Array<{ id: string; data: Record<string, unknown> }> = [];
       
       // Group attendances by userId and eventId for stats update
       const userAttendances = new Map<string, { eventId: string; attended: boolean; eventType: EventType }[]>();
@@ -259,7 +260,7 @@ const Home = () => {
           // Store for stats calculation
           const userId = data.userId;
           const event = eventsToArchive.find(e => e.id === data.eventId);
-          const eventType = event?.data.type;
+          const eventType = event?.data.type as EventType | undefined;
           
           if (!userAttendances.has(userId)) {
             userAttendances.set(userId, []);
