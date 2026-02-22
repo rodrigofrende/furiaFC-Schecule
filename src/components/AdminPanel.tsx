@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
-import { collection, getDocs, writeBatch, doc, Timestamp, addDoc, updateDoc, deleteDoc, query, where } from 'firebase/firestore';
+import { collection, getDocs, writeBatch, doc, deleteDoc, query, where } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { useAuth } from '../context/AuthContext';
 import Modal from './Modal';
 import '../styles/AdminPanel.css';
 import type { UserRole } from '../types';
+import { getUsers, createUser, editUser } from '../services/usersService';
 import { createTestMatches } from '../utils/createTestMatches';
 import { reprocessAllMatchResults } from '../utils/reprocessMatchResults';
 
@@ -37,28 +38,22 @@ const AdminPanel = () => {
   const [reprocessingStats, setReprocessingStats] = useState(false);
   const [clearingFixture, setClearingFixture] = useState(false);
 
+  // Cargar usuarios al montar el componente
+  useEffect(() => {
+    if (!user || (user.role !== 'ADMIN' && user.role !== 'VIEWER')) {
+      return;
+    }
+    loadUsers();
+  }, [user]);
+
   // Permitir acceso a ADMIN y VIEWER (solo lectura)
   if (!user || (user.role !== 'ADMIN' && user.role !== 'VIEWER')) {
     return null;
   }
 
-  // Cargar usuarios al montar el componente
-  useEffect(() => {
-    loadUsers();
-  }, []);
-
   const loadUsers = async () => {
     try {
-      const usersRef = collection(db, 'users');
-      const snapshot = await getDocs(usersRef);
-      const usersData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        email: doc.data().email || '',
-        alias: doc.data().alias || '',
-        role: doc.data().role || 'PLAYER',
-        position: doc.data().position || undefined,
-        createdAt: doc.data().createdAt?.toDate()
-      }));
+      const usersData = await getUsers();
       setUsers(usersData);
     } catch (error) {
       console.error('Error loading users:', error);
@@ -116,19 +111,18 @@ const AdminPanel = () => {
     try {
       if (editingUser) {
         // Editar usuario existente
-        await updateDoc(doc(db, 'users', editingUser.id), {
-          email: userFormData.email.trim(),
-          alias: userFormData.alias.trim(),
+        await editUser(editingUser.id, {
+          email: userFormData.email,
+          alias: userFormData.alias,
           role: userFormData.role
         });
         alert('✅ Usuario actualizado correctamente');
       } else {
         // Agregar nuevo usuario
-        await addDoc(collection(db, 'users'), {
-          email: userFormData.email.trim(),
-          alias: userFormData.alias.trim(),
-          role: userFormData.role,
-          createdAt: Timestamp.now()
+        await createUser({
+          email: userFormData.email,
+          alias: userFormData.alias,
+          role: userFormData.role
         });
         alert('✅ Usuario agregado correctamente');
       }

@@ -3,6 +3,7 @@ import { collection, addDoc, serverTimestamp, doc, updateDoc, deleteField, getDo
 import { db } from '../config/firebase';
 import { useAuth } from '../context/AuthContext';
 import { type EventType, type Event, type Rival } from '../types';
+import { type FirebaseErrorLike } from '../types/errors';
 import Modal from './Modal';
 import '../styles/CreateEvent.css';
 
@@ -79,9 +80,22 @@ const CreateEvent = ({ onEventCreated, editingEvent, isOpen, onClose }: CreateEv
       }
     } else {
       // Reset form when not editing
-      resetForm();
+      setTitle('');
+      setDescription('');
+      setLocation('');
+      setDate('');
+      setTime('');
+      setSelectedRivalId('');
+      setEventType(user?.role === 'PLAYER' ? 'CUSTOM' : 'TRAINING');
+      setIsRecurring(false);
+      setRecurringType('weekly');
+      setRecurringEndDate('');
+      setSuspended(false);
+      setIsFriendly(false);
+      setGuestParticipants([]);
+      setNewGuestName('');
     }
-  }, [editingEvent]);
+  }, [editingEvent, user?.role]);
 
   const loadRivals = async () => {
     try {
@@ -137,13 +151,14 @@ const CreateEvent = ({ onEventCreated, editingEvent, isOpen, onClose }: CreateEv
       setShowAddRivalModal(false);
       
       alert('✅ Rival agregado correctamente');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error adding rival:', error);
       let errorMessage = '❌ Error al agregar el rival';
-      if (error.code === 'permission-denied') {
+      const firebaseError = error as FirebaseErrorLike;
+      if (firebaseError.code === 'permission-denied') {
         errorMessage += '\n🔒 Error de permisos. Verifica las reglas de Firebase.';
-      } else if (error.message) {
-        errorMessage += '\n' + error.message;
+      } else if (firebaseError.message) {
+        errorMessage += '\n' + firebaseError.message;
       }
       alert(errorMessage);
       console.error('Full error details:', error);
@@ -186,13 +201,14 @@ const CreateEvent = ({ onEventCreated, editingEvent, isOpen, onClose }: CreateEv
       setShowEditRivalModal(false);
       
       alert('✅ Rival actualizado correctamente');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error updating rival:', error);
       let errorMessage = '❌ Error al actualizar el rival';
-      if (error.code === 'permission-denied') {
+      const firebaseError = error as FirebaseErrorLike;
+      if (firebaseError.code === 'permission-denied') {
         errorMessage += '\n🔒 Error de permisos. Verifica las reglas de Firebase.';
-      } else if (error.message) {
-        errorMessage += '\n' + error.message;
+      } else if (firebaseError.message) {
+        errorMessage += '\n' + firebaseError.message;
       }
       alert(errorMessage);
       console.error('Full error details:', error);
@@ -267,7 +283,7 @@ const CreateEvent = ({ onEventCreated, editingEvent, isOpen, onClose }: CreateEv
         const eventRef = doc(db, 'events', editingEvent.id);
         
         // Construir el objeto de actualización sin valores undefined
-        const updateData: any = {
+        const updateData: Record<string, unknown> = {
           type: eventType,
           title,
           description: description.trim(),
@@ -352,7 +368,7 @@ const CreateEvent = ({ onEventCreated, editingEvent, isOpen, onClose }: CreateEv
         if (shouldBeRecurring) {
           // Crear eventos recurrentes
           while (currentDate <= endDate) {
-            const eventData: any = {
+            const eventData: Record<string, unknown> = {
               type: eventType,
               title,
               description: description.trim(),
@@ -389,7 +405,7 @@ const CreateEvent = ({ onEventCreated, editingEvent, isOpen, onClose }: CreateEv
             }
           }
         } else {
-          const eventData: any = {
+          const eventData: Record<string, unknown> = {
             type: eventType,
             title,
             description: description.trim(),
@@ -432,23 +448,24 @@ const CreateEvent = ({ onEventCreated, editingEvent, isOpen, onClose }: CreateEv
         setShowModal(false);
         onEventCreated();
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error saving event:', error);
       
       let errorMessage = '❌ Error al guardar el evento';
-      if (error.code === 'permission-denied') {
+      const firebaseError = error as FirebaseErrorLike;
+      if (firebaseError.code === 'permission-denied') {
         errorMessage += '\n🔒 Error de permisos. Verifica las reglas de Firebase.';
-      } else if (error.code === 'unavailable') {
+      } else if (firebaseError.code === 'unavailable') {
         errorMessage += '\n🌐 No se puede conectar a Firebase.';
-      } else if (error.message) {
-        errorMessage += '\n' + error.message;
+      } else if (firebaseError.message) {
+        errorMessage += '\n' + firebaseError.message;
       }
       
       alert(errorMessage);
       console.error('Full error details:', {
-        code: error.code,
-        message: error.message,
-        stack: error.stack
+        code: firebaseError.code,
+        message: firebaseError.message,
+        stack: firebaseError.stack
       });
     } finally {
       setLoading(false);
