@@ -25,13 +25,13 @@ const AscensoAnnouncementModal = () => {
   }
 
   return (
-    <Modal onClose={handleClose} title="¡Ascenso Furia!">
+    <Modal onClose={handleClose} title="💙">
       <div className="ascenso-modal-content">
         <div className="ascenso-chat-bubble">
           <p>
-            Felicidades por el ascenso FURIOS{' '}
+            Felicidades por el ascenso FURIOSAS{' '}
             <span className="ascenso-a-badge" aria-label="Ascenso">A</span>
-            {' '}SÍ.
+            .
           </p>
           <p>AHORA QUEREMOS LA COPA ! 🏆 🤍 💙</p>
         </div>
