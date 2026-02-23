@@ -31,14 +31,17 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 1.3em;
-  height: 1.3em;
-  border-radius: 6px;
+  width: 1.08em;
+  height: 1.08em;
+  margin: 0 0.04em;
+  border-radius: 5px;
   background: linear-gradient(180deg, var(--color-furia-blue-light) 0%, var(--color-furia-blue) 100%);
   color: var(--color-white);
   font-weight: var(--weight-bold);
-  font-size: 0.8em;
-  vertical-align: baseline;
+  font-size: 0.86em;
+  line-height: 1;
+  vertical-align: middle;
+  transform: translateY(-0.04em);
   box-shadow: 0 2px 6px rgba(30, 64, 175, 0.45);
 }
 
