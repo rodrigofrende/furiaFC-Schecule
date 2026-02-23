@@ -3,6 +3,7 @@ import { collection, getDocs } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { type PlayerStats } from '../types';
 import '../styles/Statistics.css';
+import { ChevronDown } from 'lucide-react';
 
 const Statistics = memo(() => {
   const [stats, setStats] = useState<PlayerStats[]>([]);
@@ -115,17 +116,7 @@ const Statistics = memo(() => {
             <div className="section-header" onClick={() => setIsGoalsOpen(!isGoalsOpen)}>
               <h2>⚽ Goles, Asistencias y Tarjetas</h2>
               <button className="chevron-button" aria-label="Toggle section">
-                <svg 
-                  className={`chevron-icon ${isGoalsOpen ? 'open' : ''}`}
-                  width="24" 
-                  height="24" 
-                  viewBox="0 0 24 24" 
-                  fill="none" 
-                  stroke="currentColor" 
-                  strokeWidth="2"
-                >
-                  <polyline points="6 9 12 15 18 9"></polyline>
-                </svg>
+                <ChevronDown className={`chevron-icon ${isGoalsOpen ? 'open' : ''}`} size={20} />
               </button>
             </div>
             {isGoalsOpen && (

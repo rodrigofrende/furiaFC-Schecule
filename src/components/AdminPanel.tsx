@@ -4,6 +4,7 @@ import { db } from '../config/firebase';
 import { useAuth } from '../context/AuthContext';
 import Modal from './Modal';
 import '../styles/AdminPanel.css';
+import { Plus, Edit2, Trash2 } from 'lucide-react';
 import type { UserRole } from '../types';
 import { getUsers, createUser, editUser } from '../services/usersService';
 import { createTestMatches } from '../utils/createTestMatches';
@@ -508,17 +509,14 @@ const AdminPanel = () => {
       {/* Sección de Usuarios */}
       <div className="admin-section">
         <div className="section-header">
-          <h2>👥 Gestión de Usuarios</h2>
+          <h2>Gestión de Usuarios</h2>
           <button 
             onClick={openAddUserModal}
             className="btn-primary"
             disabled={loading || isReadOnly}
             title={isReadOnly ? 'No disponible en modo solo lectura' : ''}
           >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: '8px' }}>
-              <line x1="12" y1="5" x2="12" y2="19"/>
-              <line x1="5" y1="12" x2="19" y2="12"/>
-            </svg>
+            <Plus size={16} style={{ marginRight: 8 }} />
             Agregar Usuario
           </button>
         </div>
@@ -559,10 +557,7 @@ const AdminPanel = () => {
                         disabled={loading || isReadOnly}
                         title={isReadOnly ? 'No disponible en modo solo lectura' : 'Editar usuario'}
                       >
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-                          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
-                        </svg>
+                        <Edit2 size={16} />
                       </button>
                       <button
                         onClick={() => handleDeleteUser(userData.id)}
@@ -570,12 +565,7 @@ const AdminPanel = () => {
                         disabled={loading || isReadOnly}
                         title={isReadOnly ? 'No disponible en modo solo lectura' : 'Eliminar usuario'}
                       >
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <polyline points="3,6 5,6 21,6"/>
-                          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
-                          <line x1="10" y1="11" x2="10" y2="17"/>
-                          <line x1="14" y1="11" x2="14" y2="17"/>
-                        </svg>
+                        <Trash2 size={16} />
                       </button>
                     </td>
                   </tr>
@@ -590,7 +580,7 @@ const AdminPanel = () => {
       <div className="admin-actions">
         {/* Card: Limpieza de Datos */}
         <div className="action-card">
-          <h2>🗑️ Limpieza de Datos</h2>
+          <h2>Limpieza de Datos</h2>
           <p>Herramientas para limpiar diferentes secciones de la base de datos.</p>
           
           <div className="stats-admin-buttons">
@@ -714,29 +704,21 @@ const AdminPanel = () => {
             <div className="form-group">
               <label htmlFor="role">Rol:</label>
               <select
-                id="role"
-                value={userFormData.role}
-                onChange={(e) => setUserFormData({ ...userFormData, role: e.target.value as UserRole })}
-                disabled={loading}
-              >
-                <option value="ADMIN">ADMIN</option>
-                <option value="PLAYER">JUGADORA</option>
-                <option value="VIEWER">VIEWER</option>
-              </select>
-            </div>
-
+                      <button
+                        onClick={() => openEditUserModal(userData)}
+                        className="btn-icon btn-edit"
+                        disabled={loading || isReadOnly}
+                        title={isReadOnly ? 'No disponible en modo solo lectura' : 'Editar usuario'}
+                      >
+                        <Edit2 size={16} />
+                      </button>
             <div className="modal-actions">
               <button 
                 onClick={() => setShowUserModal(false)} 
                 className="btn-secondary"
                 disabled={loading}
               >
-                Cancelar
-              </button>
-              <button 
-                onClick={handleSaveUser}
-                className="btn-primary"
-                disabled={loading || !!emailError || !userFormData.email.trim() || !userFormData.alias.trim()}
+                        <Trash2 size={16} />
               >
                 {loading ? 'Guardando...' : editingUser ? 'Actualizar' : 'Agregar'}
               </button>
@@ -759,7 +741,7 @@ const AdminPanel = () => {
                 <p><strong>Se eliminarán:</strong></p>
                 <ul>
                   <li>📅 Todos los eventos ({eventsCount} eventos encontrados)</li>
-                  <li>👥 Todas las asistencias registradas</li>
+                  <li><Users size={14} /> Todas las asistencias registradas</li>
                   <li>📊 Todo el historial de participación</li>
                 </ul>
               </div>
