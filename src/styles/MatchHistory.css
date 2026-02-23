@@ -288,6 +288,28 @@
   font-style: italic;
 }
 
+/* Penalties summary */
+.penalties-summary {
+  text-align: center;
+  padding: var(--space-sm) var(--space-md);
+  margin: var(--space-sm) var(--space-lg);
+  background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+  border: 2px solid #3b82f6;
+  border-radius: var(--radius-md);
+  color: #1e40af;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+}
+
+.penalties-title {
+  font-weight: var(--weight-bold);
+  margin-right: var(--space-xs);
+}
+
+.penalties-score {
+  font-family: var(--font-mono);
+}
+
 /* Match Details - Stats Cards Layout */
 .match-details {
   padding: var(--space-md) 0 0;
@@ -377,10 +399,10 @@
 
 /* Stat Content */
 .stat-content {
-  padding: 10px 14px;
+  padding: 6px 10px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 4px;
 }
 
 .stat-content.stat-empty {
@@ -411,19 +433,21 @@
 /* Stat Item - Universal */
 .stat-item {
   display: flex;
+  flex-direction: row;
   align-items: center;
-  gap: 10px;
-  padding: 6px 8px;
+  gap: 6px;
+  padding: 4px 6px;
   background: #fafbfc;
   border-radius: 6px;
   border: 1px solid #e5e7eb;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
 }
 
 .stat-main {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 6px;
+  flex-shrink: 0;
 }
 
 /* Goals - Number prominente */
@@ -431,64 +455,68 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  min-width: 32px;
-  height: 32px;
+  min-width: 28px;
+  height: 28px;
   background: linear-gradient(135deg, var(--color-furia-blue) 0%, #2563eb 100%);
   color: white !important;
-  border-radius: 6px;
+  border-radius: 4px;
   font-weight: var(--weight-bold);
-  font-size: 1.1rem;
+  font-size: 0.95rem;
   font-family: var(--font-display);
   flex-shrink: 0;
   box-shadow: 0 2px 4px rgba(30, 64, 175, 0.2);
 }
 
 .stat-player {
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   font-weight: var(--weight-semibold);
   color: var(--color-furia-black);
   font-family: var(--font-heading);
+  flex-shrink: 0;
 }
 
 /* Assists */
 .stat-assists {
   display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
+  flex-wrap: nowrap;
+  gap: 3px;
+  min-width: 0;
 }
 
 .stat-assist-badge {
   display: inline-flex;
   align-items: center;
-  padding: 4px 10px;
+  padding: 2px 8px;
   background: linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%);
   border: 1px solid #7dd3fc;
-  border-radius: 12px;
-  font-size: 0.75rem;
+  border-radius: 10px;
+  font-size: 0.7rem;
   color: #0369a1;
   font-weight: var(--weight-medium);
   white-space: nowrap;
-  gap: 4px;
+  gap: 2px;
+  flex-shrink: 0;
 }
 
 .stat-assist-badge .assist-label {
   color: #64748b;
-  font-weight: var(--weight-semibold);
-  font-size: 0.7rem;
+  font-weight: var(--weight-bold);
+  font-size: 0.65rem;
 }
 
 .stat-assist-badge .assist-name {
   color: #0369a1;
   font-weight: var(--weight-semibold);
+  font-size: 0.7rem;
 }
 
 .stat-assist-badge .assist-count {
   color: #0284c7;
   font-weight: var(--weight-bold);
   background: rgba(255, 255, 255, 0.6);
-  padding: 1px 5px;
-  border-radius: 8px;
-  font-size: 0.7rem;
+  padding: 0px 4px;
+  border-radius: 6px;
+  font-size: 0.65rem;
 }
 
 /* Cards - Icons inline */
@@ -1438,6 +1466,15 @@
   .stat-cards {
     flex: 1;
     min-width: 160px;
+  }
+
+  /* Optimizar stat items para escritorio */
+  .stat-item {
+    min-height: 24px;
+  }
+
+  .stat-assists {
+    min-width: 0;
   }
 
   .stat-content {

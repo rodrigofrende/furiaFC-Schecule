@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import Modal from './Modal';
 import { Tooltip } from 'react-tooltip';
+import { Calendar, Trophy, CalendarDays, BarChart2, Settings, User, LogOut, Menu } from 'lucide-react';
 import furiaLogo from '../assets/logo furia.png';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../config/firebase';
@@ -16,6 +17,7 @@ const Navigation = () => {
   const [newBirthday, setNewBirthday] = useState('');
   const [newPosition, setNewPosition] = useState<PlayerPosition | ''>('');
   const [saving, setSaving] = useState(false);
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
 
   const handleEditName = async () => {
     setNewName(user?.displayName || '');
@@ -146,6 +148,15 @@ const Navigation = () => {
           <span className="nav-brand-text">FURIA FC</span>
         </div>
         
+        {/* Mobile menu button (visible only on small screens via CSS) */}
+        <button
+          className="mobile-menu-button"
+          aria-label="Abrir menú"
+          onClick={() => setShowMobileMenu(true)}
+        >
+          <Menu size={20} />
+        </button>
+        
         {/* Desktop user info */}
         <div className="nav-user-info">
           <span className="nav-username">{user?.displayName}</span>
@@ -157,10 +168,7 @@ const Navigation = () => {
                 data-tooltip-id="nav-profile-tooltip"
                 data-tooltip-content="Editar Perfil"
               >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-                  <circle cx="12" cy="7" r="4"/>
-                </svg>
+                <User size={20} />
               </button>
             )}
             
@@ -170,31 +178,32 @@ const Navigation = () => {
               data-tooltip-id="nav-logout-tooltip"
               data-tooltip-content="Cerrar Sesión"
             >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
-                <polyline points="16,17 21,12 16,7"/>
-                <line x1="21" y1="12" x2="9" y2="12"/>
-              </svg>
+              <LogOut size={20} />
             </button>
           </div>
         </div>
 
         <div className="nav-links">
           <NavLink to="/" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>
-            📆 Eventos
+            <Calendar className="nav-icon" />
+            <span className="nav-label">Eventos</span>
           </NavLink>
           <NavLink to="/history" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>
-            🏆 Historial
+            <Trophy className="nav-icon" />
+            <span className="nav-label">Historial</span>
           </NavLink>
           <NavLink to="/fixture" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>
-            📅 Fixture
+            <CalendarDays className="nav-icon" />
+            <span className="nav-label">Fixture</span>
           </NavLink>
           <NavLink to="/statistics" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>
-            📊 Estadísticas
+            <BarChart2 className="nav-icon" />
+            <span className="nav-label">Estadísticas</span>
           </NavLink>
           {(user?.role === 'ADMIN' || user?.role === 'VIEWER') && (
             <NavLink to="/admin" className={({ isActive }) => isActive ? 'nav-link active admin-link' : 'nav-link admin-link'}>
-              🔧 Admin
+              <Settings className="nav-icon" />
+              <span className="nav-label">Admin</span>
             </NavLink>
           )}
         </div>
@@ -277,6 +286,35 @@ const Navigation = () => {
                 {saving ? 'Guardando...' : 'Guardar'}
               </button>
             </div>
+          </div>
+        </Modal>
+      )}
+      {/* Mobile menu modal */}
+      {showMobileMenu && (
+        <Modal onClose={() => setShowMobileMenu(false)} title="Menú">
+          <div className="mobile-menu-list">
+            <NavLink to="/" onClick={() => setShowMobileMenu(false)} className={({ isActive }) => isActive ? 'nav-link mobile-item active' : 'nav-link mobile-item'}>
+              <Calendar className="nav-icon" />
+              <span className="nav-label">Eventos</span>
+            </NavLink>
+            <NavLink to="/history" onClick={() => setShowMobileMenu(false)} className={({ isActive }) => isActive ? 'nav-link mobile-item active' : 'nav-link mobile-item'}>
+              <Trophy className="nav-icon" />
+              <span className="nav-label">Historial</span>
+            </NavLink>
+            <NavLink to="/fixture" onClick={() => setShowMobileMenu(false)} className={({ isActive }) => isActive ? 'nav-link mobile-item active' : 'nav-link mobile-item'}>
+              <CalendarDays className="nav-icon" />
+              <span className="nav-label">Fixture</span>
+            </NavLink>
+            <NavLink to="/statistics" onClick={() => setShowMobileMenu(false)} className={({ isActive }) => isActive ? 'nav-link mobile-item active' : 'nav-link mobile-item'}>
+              <BarChart2 className="nav-icon" />
+              <span className="nav-label">Estadísticas</span>
+            </NavLink>
+            {(user?.role === 'ADMIN' || user?.role === 'VIEWER') && (
+              <NavLink to="/admin" onClick={() => setShowMobileMenu(false)} className={({ isActive }) => isActive ? 'nav-link mobile-item active admin-link' : 'nav-link mobile-item admin-link'}>
+                <Settings className="nav-icon" />
+                <span className="nav-label">Admin</span>
+              </NavLink>
+            )}
           </div>
         </Modal>
       )}

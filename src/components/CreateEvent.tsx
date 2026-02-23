@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { type EventType, type Event, type Rival } from '../types';
 import { type FirebaseErrorLike } from '../types/errors';
 import Modal from './Modal';
+import { Edit2, Plus, Users, User } from 'lucide-react';
 import '../styles/CreateEvent.css';
 
 interface CreateEventProps {
@@ -597,10 +598,7 @@ const CreateEvent = ({ onEventCreated, editingEvent, isOpen, onClose }: CreateEv
                       title="Editar rival"
                       disabled={!selectedRivalId}
                     >
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
-                      </svg>
+                      <Edit2 size={16} />
                     </button>
                     <button
                       type="button"
@@ -608,7 +606,7 @@ const CreateEvent = ({ onEventCreated, editingEvent, isOpen, onClose }: CreateEv
                       className="btn-add-rival"
                       title="Agregar nuevo rival"
                     >
-                      +
+                      <Plus size={16} />
                     </button>
                   </div>
                 </div>
@@ -805,7 +803,7 @@ const CreateEvent = ({ onEventCreated, editingEvent, isOpen, onClose }: CreateEv
                   color: '#0d47a1',
                   marginBottom: '12px'
                 }}>
-                  👥 Agrega personas que asistirán pero no tienen cuenta en el sistema. Se sumarán al conteo total de participantes.
+                  <Users size={14} /> Agrega personas que asistirán pero no tienen cuenta en el sistema. Se sumarán al conteo total de participantes.
                 </div>
                 
                 <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
@@ -862,7 +860,7 @@ const CreateEvent = ({ onEventCreated, editingEvent, isOpen, onClose }: CreateEv
                           color: '#333',
                           fontWeight: '500'
                         }}>
-                          👤 {guestName}
+                          <User size={14} /> {guestName}
                         </span>
                         <button
                           type="button"

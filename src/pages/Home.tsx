@@ -6,6 +6,7 @@ import { type Event, type Attendance, type AttendanceStatus, type EventType } fr
 import Modal from '../components/Modal';
 import CreateEvent from '../components/CreateEvent';
 import { Tooltip } from 'react-tooltip';
+import { MessageSquare, Car, Users, User } from 'lucide-react';
 import 'react-tooltip/dist/react-tooltip.css';
 import '../styles/Home.css';
 
@@ -1063,7 +1064,7 @@ const Home = () => {
             {attendanceStatus === 'attending' && (
               <div className="form-group car-options-row">
                 <div className="toggle-label">
-                  <span className="toggle-text">🚗 Voy con auto</span>
+                  <span className="toggle-text"><Car size={14} /> Voy con auto</span>
                   <input
                     type="checkbox"
                     checked={withCar}
@@ -1079,7 +1080,7 @@ const Home = () => {
                 </div>
 
                 <div className="toggle-label">
-                  <span className="toggle-text">👥 Puedo llevar a alguien</span>
+                  <span className="toggle-text"><Users size={14} /> Puedo llevar a alguien</span>
                   <input
                     type="checkbox"
                     checked={canGiveRide}
@@ -1142,7 +1143,7 @@ const Home = () => {
                               data-tooltip-id={`car-tooltip-${participant.id}`}
                               data-tooltip-content="Va con auto"
                             >
-                              🚗
+                              <Car size={16} />
                             </span>
                           )}
                           {participant.canGiveRide && (
@@ -1151,7 +1152,7 @@ const Home = () => {
                               data-tooltip-id={`ride-tooltip-${participant.id}`}
                               data-tooltip-content="Puede llevar a alguien"
                             >
-                              👥
+                              <Users size={16} />
                             </span>
                           )}
                           <span 
@@ -1159,9 +1160,7 @@ const Home = () => {
                             data-tooltip-id={`comment-tooltip-${participant.id}`}
                             data-tooltip-content={participant.comment || 'Sin comentario'}
                           >
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-                            </svg>
+                            <MessageSquare size={18} />
                           </span>
                           <Tooltip 
                             id={`comment-tooltip-${participant.id}`}
@@ -1211,7 +1210,7 @@ const Home = () => {
                                 alignItems: 'center',
                                 gap: '8px'
                               }}>
-                                <span style={{ fontSize: '16px' }}>👤</span>
+                                <User size={16} />
                                 <span>{guestName}</span>
                                 <span style={{
                                   fontSize: '11px',
@@ -1250,7 +1249,7 @@ const Home = () => {
                               data-tooltip-id={`car-tooltip-pending-${participant.id}`}
                               data-tooltip-content="Va con auto"
                             >
-                              🚗
+                              <Car size={14} />
                             </span>
                           )}
                           {participant.canGiveRide && (
@@ -1259,7 +1258,7 @@ const Home = () => {
                               data-tooltip-id={`ride-tooltip-pending-${participant.id}`}
                               data-tooltip-content="Puede llevar a alguien"
                             >
-                              👥
+                              <Users size={14} />
                             </span>
                           )}
                           <span 
@@ -1267,9 +1266,7 @@ const Home = () => {
                             data-tooltip-id={`comment-tooltip-pending-${participant.id}`}
                             data-tooltip-content={participant.comment || 'Sin comentario'}
                           >
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-                            </svg>
+                            <MessageSquare size={18} />
                           </span>
                           <Tooltip 
                             id={`comment-tooltip-pending-${participant.id}`}
@@ -1311,7 +1308,7 @@ const Home = () => {
                               data-tooltip-id={`car-tooltip-not-${participant.id}`}
                               data-tooltip-content="Va con auto"
                             >
-                              🚗
+                              <Car size={14} />
                             </span>
                           )}
                           {participant.canGiveRide && (
@@ -1320,7 +1317,7 @@ const Home = () => {
                               data-tooltip-id={`ride-tooltip-not-${participant.id}`}
                               data-tooltip-content="Puede llevar a alguien"
                             >
-                              👥
+                              <Users size={14} />
                             </span>
                           )}
                           <span 
@@ -1328,9 +1325,7 @@ const Home = () => {
                             data-tooltip-id={`comment-tooltip-not-${participant.id}`}
                             data-tooltip-content={participant.comment || 'Sin comentario'}
                           >
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-                            </svg>
+                            <MessageSquare size={18} />
                           </span>
                           <Tooltip 
                             id={`comment-tooltip-not-${participant.id}`}
@@ -1372,7 +1367,7 @@ const Home = () => {
                               data-tooltip-id={`car-tooltip-notvoted-${participant.id}`}
                               data-tooltip-content="Va con auto"
                             >
-                              🚗
+                              <Car size={14} />
                             </span>
                           )}
                           {participant.canGiveRide && (
@@ -1381,7 +1376,7 @@ const Home = () => {
                               data-tooltip-id={`ride-tooltip-notvoted-${participant.id}`}
                               data-tooltip-content="Puede llevar a alguien"
                             >
-                              👥
+                              <Users size={14} />
                             </span>
                           )}
                           <span 
@@ -1389,9 +1384,7 @@ const Home = () => {
                             data-tooltip-id={`comment-tooltip-notvoted-${participant.id}`}
                             data-tooltip-content="Aún no ha votado"
                           >
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-                            </svg>
+                            <MessageSquare size={18} />
                           </span>
                           <Tooltip 
                             id={`comment-tooltip-notvoted-${participant.id}`}
