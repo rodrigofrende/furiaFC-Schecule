@@ -1,0 +1,62 @@
+.ascenso-modal-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+.ascenso-chat-bubble {
+  background: linear-gradient(135deg, var(--color-furia-black) 0%, #1f1f1f 100%);
+  color: var(--color-white);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+  box-shadow: var(--shadow-md);
+}
+
+.ascenso-chat-bubble p {
+  margin: 0;
+  font-family: var(--font-heading);
+  font-weight: var(--weight-semibold);
+  font-size: var(--text-xl);
+  letter-spacing: 0.3px;
+  line-height: 1.4;
+  text-transform: uppercase;
+}
+
+.ascenso-chat-bubble p + p {
+  margin-top: var(--space-sm);
+}
+
+.ascenso-a-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.3em;
+  height: 1.3em;
+  border-radius: 6px;
+  background: linear-gradient(180deg, var(--color-furia-blue-light) 0%, var(--color-furia-blue) 100%);
+  color: var(--color-white);
+  font-weight: var(--weight-bold);
+  font-size: 0.8em;
+  vertical-align: baseline;
+  box-shadow: 0 2px 6px rgba(30, 64, 175, 0.45);
+}
+
+.ascenso-confirm-button {
+  align-self: flex-end;
+  border: 2px solid var(--color-furia-blue);
+  background-color: var(--color-furia-blue);
+  color: var(--color-white);
+  border-radius: var(--radius-md);
+  padding: 10px 16px;
+  font-family: var(--font-heading);
+  font-size: var(--text-base);
+  font-weight: var(--weight-bold);
+  text-transform: uppercase;
+  transition: all var(--transition-fast);
+}
+
+.ascenso-confirm-button:hover {
+  background-color: var(--color-furia-blue-dark);
+  border-color: var(--color-furia-blue-dark);
+}
