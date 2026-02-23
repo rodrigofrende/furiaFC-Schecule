@@ -4,7 +4,7 @@ import { db } from '../config/firebase';
 import { useAuth } from '../context/AuthContext';
 import Modal from './Modal';
 import '../styles/AdminPanel.css';
-import { Plus, Edit2, Trash2 } from 'lucide-react';
+import { Plus, Edit2, Trash2, Users } from 'lucide-react';
 import type { UserRole } from '../types';
 import { getUsers, createUser, editUser } from '../services/usersService';
 import { createTestMatches } from '../utils/createTestMatches';
@@ -704,21 +704,28 @@ const AdminPanel = () => {
             <div className="form-group">
               <label htmlFor="role">Rol:</label>
               <select
-                      <button
-                        onClick={() => openEditUserModal(userData)}
-                        className="btn-icon btn-edit"
-                        disabled={loading || isReadOnly}
-                        title={isReadOnly ? 'No disponible en modo solo lectura' : 'Editar usuario'}
-                      >
-                        <Edit2 size={16} />
-                      </button>
+                id="role"
+                value={userFormData.role}
+                onChange={(e) => setUserFormData({ ...userFormData, role: e.target.value as UserRole })}
+                disabled={loading}
+              >
+                <option value="VIEWER">Espectadora</option>
+                <option value="PLAYER">Jugadora</option>
+                <option value="ADMIN">Administradora</option>
+              </select>
+            </div>
             <div className="modal-actions">
               <button 
                 onClick={() => setShowUserModal(false)} 
                 className="btn-secondary"
                 disabled={loading}
               >
-                        <Trash2 size={16} />
+                Cancelar
+              </button>
+              <button 
+                onClick={handleSaveUser} 
+                className="btn-primary"
+                disabled={loading || !!emailError}
               >
                 {loading ? 'Guardando...' : editingUser ? 'Actualizar' : 'Agregar'}
               </button>

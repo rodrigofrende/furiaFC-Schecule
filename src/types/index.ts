@@ -82,6 +82,7 @@ export interface PlayerStats {
   totalAttended: number;
   goals?: number;
   assists?: number;
+  penalties?: number; // Number of penalties scored
   yellowCards?: number; // Number of yellow cards received
   redCards?: number; // Number of red cards received
   figureOfTheMatch?: number; // Times selected as figure of the match
@@ -95,6 +96,13 @@ export interface Goal {
   playerName: string;
   assistPlayerId?: string;
   assistPlayerName?: string;
+  createdAt: Date;
+}
+
+export interface Penalty {
+  id: string;
+  playerId: string;
+  playerName: string;
   createdAt: Date;
 }
 
@@ -121,6 +129,9 @@ export interface MatchResult {
   date: Date;
   location?: string;
   isFriendly?: boolean; // Si es true, este partido NO suma en estadísticas
+  wentToPenalties?: boolean; // Si el partido fue a penales
+  penalties?: Penalty[]; // List of penalties scored by Furia players
+  rivalPenalties?: number; // Number of penalties scored by rival
   createdAt: Date;
   updatedAt: Date;
 }

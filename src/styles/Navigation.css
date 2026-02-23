@@ -47,7 +47,6 @@
   gap: var(--space-sm);
   padding: var(--space-lg) 0;
   border-bottom: 2px solid var(--color-furia-blue);
-  margin-bottom: var(--space-md);
 }
 
 .nav-logo {
@@ -197,6 +196,10 @@
   .nav-logo {
     width: 120px; /* Larger logo on desktop */
     height: 120px;
+  }
+  
+  .mobile-menu-button {
+    display: none; /* Hide mobile menu button on desktop */
   }
 }
 

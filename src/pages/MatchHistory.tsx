@@ -2,10 +2,10 @@ import { useState, useEffect, useMemo, useCallback, memo } from 'react';
 import { collection, getDocs, query, where, Timestamp, doc, setDoc, getDoc, serverTimestamp, updateDoc, orderBy, writeBatch } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { useAuth } from '../context/AuthContext';
-import { type MatchResult, type Goal, type Card, type CardType, type User, type Rival } from '../types';
+import { type MatchResult, type Goal, type Penalty, type Card, type CardType, type User, type Rival } from '../types';
 import { type FirebaseErrorLike } from '../types/errors';
 import Modal from '../components/Modal';
-import { Edit2, Plus } from 'lucide-react';
+import { Edit2, Plus, Trophy, HeartCrack, Handshake, Target, Edit, Trash2, AlertTriangle } from 'lucide-react';
 import '../styles/MatchHistory.css';
 
 interface ArchivedMatch {
@@ -49,6 +49,12 @@ const MatchHistory = memo(() => {
   }>>([]);
   const [figureOfTheMatchId, setFigureOfTheMatchId] = useState<string>('');
   const [isFriendly, setIsFriendly] = useState<boolean>(false);
+  const [wentToPenalties, setWentToPenalties] = useState<boolean>(false);
+  const [penalties, setPenalties] = useState<Array<{
+    playerId: string;
+    playerName: string;
+  }>>([]);
+  const [rivalPenalties, setRivalPenalties] = useState<number>(0);
   const [players, setPlayers] = useState<User[]>([]);
   const [rivals, setRivals] = useState<Rival[]>([]);
   const [saving, setSaving] = useState(false);
@@ -263,6 +269,12 @@ const MatchHistory = memo(() => {
             date: resultData.date instanceof Timestamp ? resultData.date.toDate() : new Date(resultData.date),
             location: resultData.location,
             isFriendly: resultData.isFriendly || false,
+            wentToPenalties: resultData.wentToPenalties || false,
+            penalties: resultData.penalties ? resultData.penalties.map((p: { createdAt?: Timestamp | Date | string | number }) => ({
+              ...p,
+              createdAt: p.createdAt instanceof Timestamp ? p.createdAt.toDate() : new Date(p.createdAt ?? Date.now())
+            })) : [],
+            rivalPenalties: resultData.rivalPenalties || 0,
             createdAt: resultData.createdAt instanceof Timestamp ? resultData.createdAt.toDate() : new Date(resultData.createdAt),
             updatedAt: resultData.updatedAt instanceof Timestamp ? resultData.updatedAt.toDate() : new Date(resultData.updatedAt)
           };
@@ -308,6 +320,12 @@ const MatchHistory = memo(() => {
       setRivalGoals(match.result.rivalGoals);
       setFigureOfTheMatchId(match.result.figureOfTheMatchId || '');
       setIsFriendly(match.result.isFriendly || false);
+      setWentToPenalties(match.result.wentToPenalties || false);
+      setPenalties(match.result.penalties ? match.result.penalties.map(p => ({
+        playerId: p.playerId,
+        playerName: p.playerName
+      })) : []);
+      setRivalPenalties(match.result.rivalPenalties || 0);
       setGoals(match.result.goals.map(g => ({
         playerId: g.playerId,
         playerName: g.playerName,
@@ -326,6 +344,9 @@ const MatchHistory = memo(() => {
       setFuriaGoals(0);
       setRivalGoals(0);
       setFigureOfTheMatchId('');
+      setWentToPenalties(false);
+      setPenalties([]);
+      setRivalPenalties(0);
       // Check if the archived event has isFriendly set
       const eventArchiveRef = doc(db, 'events_archive', match.id);
       const eventArchiveDoc = await getDoc(eventArchiveRef);
@@ -417,6 +438,29 @@ const MatchHistory = memo(() => {
     setCards(newCards);
   }, [players, cards]);
 
+  const handleAddPenalty = useCallback(() => {
+    if (players.length === 0) return;
+    
+    setPenalties([...penalties, {
+      playerId: players[0].id,
+      playerName: players[0].displayName
+    }]);
+  }, [players, penalties]);
+
+  const handleRemovePenalty = useCallback((index: number) => {
+    setPenalties(penalties.filter((_, i) => i !== index));
+  }, [penalties]);
+
+  const handlePenaltyChange = useCallback((index: number, value: string) => {
+    const newPenalties = [...penalties];
+    const player = players.find(p => p.id === value);
+    if (player) {
+      newPenalties[index].playerId = player.id;
+      newPenalties[index].playerName = player.displayName;
+    }
+    setPenalties(newPenalties);
+  }, [players, penalties]);
+
   const handleSaveResult = useCallback(async () => {
     if (!editingMatch || !rivalId) {
       alert('⚠️ Por favor selecciona un rival');
@@ -465,6 +509,13 @@ const MatchHistory = memo(() => {
         createdAt: new Date()
       }));
 
+      const penaltiesWithIds: Penalty[] = penalties.map((p, index) => ({
+        id: `penalty_${editingMatch.id}_${index}`,
+        playerId: p.playerId,
+        playerName: p.playerName,
+        createdAt: new Date()
+      }));
+
       // Prepare result data
       const resultData: Record<string, unknown> = {
         eventId: editingMatch.id,
@@ -479,6 +530,9 @@ const MatchHistory = memo(() => {
         figureOfTheMatchId: figureOfTheMatchId || null,
         figureOfTheMatchName: figureOfTheMatchId ? players.find(p => p.id === figureOfTheMatchId)?.displayName || '' : null,
         isFriendly: isFriendly || false,
+        wentToPenalties: wentToPenalties || false,
+        penalties: wentToPenalties ? penaltiesWithIds : null,
+        rivalPenalties: wentToPenalties ? rivalPenalties : null,
         updatedAt: serverTimestamp()
       };
 
@@ -583,6 +637,45 @@ const MatchHistory = memo(() => {
             }
           }
         }
+        
+        // Update penalty stats - Calculate difference between new and old penalties
+        const oldPenalties = editingMatch.result.penalties || [];
+        const oldPenaltyCounts = new Map<string, number>();
+        
+        oldPenalties.forEach(p => {
+          oldPenaltyCounts.set(p.playerId, (oldPenaltyCounts.get(p.playerId) || 0) + 1);
+        });
+        
+        const newPenaltyCounts = new Map<string, number>();
+        
+        penaltiesWithIds.forEach(p => {
+          newPenaltyCounts.set(p.playerId, (newPenaltyCounts.get(p.playerId) || 0) + 1);
+        });
+        
+        // Update penalty stats based on differences
+        const allPenaltyPlayerIds = new Set([...oldPenaltyCounts.keys(), ...newPenaltyCounts.keys()]);
+        for (const playerId of allPenaltyPlayerIds) {
+          const oldCount = oldPenaltyCounts.get(playerId) || 0;
+          const newCount = newPenaltyCounts.get(playerId) || 0;
+          const diff = newCount - oldCount;
+          
+          if (diff !== 0) {
+            // Get player email from playerId
+            const player = players.find(p => p.id === playerId);
+            if (player) {
+              const statsRef = doc(db, 'stats', player.email);
+              const statsDoc = await getDoc(statsRef);
+              
+              if (statsDoc.exists()) {
+                const currentPenalties = statsDoc.data().penalties || 0;
+                await updateDoc(statsRef, {
+                  penalties: Math.max(0, currentPenalties + diff),
+                  lastUpdated: serverTimestamp()
+                });
+              }
+            }
+          }
+        }
         } else if (!editingMatch.result || editingMatch.result.isFriendly) {
           // Creating new result or editing from friendly to official - just add all goals and assists
           for (const goal of goalsWithIds) {
@@ -620,6 +713,23 @@ const MatchHistory = memo(() => {
                   lastUpdated: serverTimestamp()
                 });
               }
+            }
+          }
+        }
+        
+        // Update penalty stats
+        for (const penalty of penaltiesWithIds) {
+          const player = players.find(p => p.id === penalty.playerId);
+          if (player) {
+            const statsRef = doc(db, 'stats', player.email);
+            const statsDoc = await getDoc(statsRef);
+            
+            if (statsDoc.exists()) {
+              const currentPenalties = statsDoc.data().penalties || 0;
+              await updateDoc(statsRef, {
+                penalties: currentPenalties + 1,
+                lastUpdated: serverTimestamp()
+              });
             }
           }
         }
@@ -955,10 +1065,24 @@ const MatchHistory = memo(() => {
     if (filterResult !== 'all' && match.result) {
       const furiaGoals = match.result.furiaGoals;
       const rivalGoals = match.result.rivalGoals;
+      const wentToPenalties = match.result.wentToPenalties || false;
+      const penalties = match.result.penalties || [];
+      const rivalPenalties = match.result.rivalPenalties || 0;
       
-      if (filterResult === 'win' && furiaGoals <= rivalGoals) return false;
-      if (filterResult === 'lose' && furiaGoals >= rivalGoals) return false;
-      if (filterResult === 'draw' && furiaGoals !== rivalGoals) return false;
+      let isWin = false;
+      let isDraw = false;
+      
+      if (wentToPenalties) {
+        isWin = penalties.length > rivalPenalties;
+        isDraw = penalties.length === rivalPenalties;
+      } else {
+        isWin = furiaGoals > rivalGoals;
+        isDraw = furiaGoals === rivalGoals;
+      }
+      
+      if (filterResult === 'win' && !isWin) return false;
+      if (filterResult === 'lose' && isWin) return false; // lose if not win and not draw
+      if (filterResult === 'draw' && !isDraw) return false;
     }
     
     // If filtering by result but match has no result, exclude it
@@ -1039,9 +1163,23 @@ const MatchHistory = memo(() => {
         <div className="match-history-list">
           {filteredMatches.map((match) => {
             const hasResult = !!match.result;
-            const furiaWon = hasResult && match.result!.furiaGoals > match.result!.rivalGoals;
-            const rivalWon = hasResult && match.result!.furiaGoals < match.result!.rivalGoals;
-            const isDraw = hasResult && !furiaWon && !rivalWon;
+            let furiaWon = false;
+            let rivalWon = false;
+            let isDraw = false;
+            
+            if (hasResult) {
+              const result = match.result!;
+              if (result.wentToPenalties) {
+                const penalties = result.penalties || [];
+                furiaWon = penalties.length > (result.rivalPenalties || 0);
+                rivalWon = penalties.length < (result.rivalPenalties || 0);
+                isDraw = penalties.length === (result.rivalPenalties || 0);
+              } else {
+                furiaWon = result.furiaGoals > result.rivalGoals;
+                rivalWon = result.furiaGoals < result.rivalGoals;
+                isDraw = result.furiaGoals === result.rivalGoals;
+              }
+            }
 
             const figureName = hasResult ? match.result!.figureOfTheMatchName?.trim() ?? '' : '';
             const goalsList = hasResult ? match.result!.goals ?? [] : [];
@@ -1096,13 +1234,17 @@ const MatchHistory = memo(() => {
             const hasCardsData = Object.keys(cardsByPlayer).length > 0;
 
             const matchOutcomeClass = furiaWon ? 'win' : rivalWon ? 'lose' : 'draw';
-            const outcomeIcon = furiaWon ? '🏆' : rivalWon ? '💔' : '🤝';
+            const outcomeIcon = furiaWon ? <Trophy size={20} /> : rivalWon ? <HeartCrack size={20} /> : <Handshake size={20} />;
             const outcomeLabel = furiaWon
               ? 'Victoria de FURIA'
               : rivalWon
                 ? `Derrota ante ${match.result!.rivalName}`
                 : 'Empate';
-            const outcomeSubtitle = `${match.result?.furiaGoals ?? 0} - ${match.result?.rivalGoals ?? 0} vs ${match.result?.rivalName ?? ''}`;
+            let outcomeSubtitle = `${match.result?.furiaGoals ?? 0} - ${match.result?.rivalGoals ?? 0} vs ${match.result?.rivalName ?? ''}`;
+            if (match.result?.wentToPenalties) {
+              const penalties = match.result.penalties || [];
+              outcomeSubtitle += ` (${penalties.length} - ${match.result.rivalPenalties} penales)`;
+            }
             const goalDifference = hasResult ? Math.abs(match.result!.furiaGoals - match.result!.rivalGoals) : 0;
 
             return (
@@ -1143,9 +1285,18 @@ const MatchHistory = memo(() => {
                   </div>
                 </div>
 
+                {hasResult && match.result!.wentToPenalties && (
+                  <div className="penalties-summary">
+                    <span className="penalties-title">Penales:</span>
+                    <span className="penalties-score">
+                      FURIA {(match.result!.penalties || []).length} - {match.result!.rivalName} {match.result!.rivalPenalties}
+                    </span>
+                  </div>
+                )}
+
                 {hasResult && match.result!.isFriendly && (
                   <div className="friendly-match-badge">
-                    🏆 Partido Amistoso (No suma en estadísticas)
+                    <Trophy size={16} /> Partido Amistoso (No suma en estadísticas)
                   </div>
                 )}
 
@@ -1158,7 +1309,9 @@ const MatchHistory = memo(() => {
                   <>
                     <div className={`match-outcome-banner ${matchOutcomeClass}`}>
                       <div className="outcome-main">
-                        <span className="outcome-icon" aria-hidden="true">{outcomeIcon}</span>
+                        <span className="outcome-icon" aria-hidden="true">
+                          {outcomeIcon}
+                        </span>
                         <div className="outcome-text">
                           <span className="outcome-title">{outcomeLabel}</span>
                           <span className="outcome-subtitle">{outcomeSubtitle}</span>
@@ -1204,7 +1357,7 @@ const MatchHistory = memo(() => {
 
                         <div className={`stat-card-match stat-goals ${hasGoalsData ? '' : 'is-empty'}`}>
                           <div className="stat-header">
-                            <span className="stat-icon">⚽</span>
+                            <span className="stat-icon"><Target size={14} /></span>
                             <div className="stat-header-info">
                               <span className="stat-title">Goles ({totalGoals})</span>
                               <span className="stat-meta">{assistsMeta}</span>
@@ -1249,7 +1402,6 @@ const MatchHistory = memo(() => {
 
                         <div className={`stat-card-match stat-cards ${hasCardsData ? '' : 'is-empty'}`}>
                           <div className="stat-header">
-                            <span className="stat-icon">📋</span>
                             <div className="stat-header-info">
                               <span className="stat-title">Tarjetas ({totalCards})</span>
                               <span className="stat-meta">
@@ -1292,14 +1444,14 @@ const MatchHistory = memo(() => {
                       onClick={() => handleEditResult(match)}
                       className="btn-edit-result"
                     >
-                      {hasResult ? '✏️ Editar Resultado' : '➕ Ingresar Resultado'}
+                      {hasResult ? <><Edit size={16} /> Editar Resultado</> : <><Plus size={16} /> Ingresar Resultado</>}
                     </button>
                     <button 
                       onClick={() => handleDeleteMatch(match)}
                       className="btn-delete-match"
                       title="Eliminar partido"
                     >
-                      🗑️ Eliminar Evento
+                      <Trash2 size={16} /> Eliminar Evento
                     </button>
                   </div>
                 )}
@@ -1433,6 +1585,95 @@ const MatchHistory = memo(() => {
               </div>
             </div>
 
+            {furiaGoals === rivalGoals && furiaGoals > 0 && (
+              <div className="result-editor-section">
+                <h3><Target size={18} /> Penales (Opcional - Solo si terminó en empate)</h3>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
+                  <input
+                    type="checkbox"
+                    id="wentToPenalties"
+                    checked={wentToPenalties}
+                    onChange={(e) => setWentToPenalties(e.target.checked)}
+                    disabled={saving}
+                    style={{ width: '20px', height: '20px', cursor: saving ? 'not-allowed' : 'pointer' }}
+                  />
+                  <label htmlFor="wentToPenalties" style={{ cursor: saving ? 'not-allowed' : 'pointer', fontWeight: '500' }}>
+                    El partido fue a penales
+                  </label>
+                </div>
+                {wentToPenalties && (
+                  <div>
+                    <div className="result-scores">
+                      <div className="result-score-input">
+                        <label>{rivalName || 'RIVAL'} (Penales)</label>
+                        <input
+                          type="number"
+                          min="0"
+                          max="99"
+                          value={rivalPenalties}
+                          onChange={(e) => setRivalPenalties(Math.max(0, parseInt(e.target.value) || 0))}
+                          disabled={saving}
+                        />
+                      </div>
+                    </div>
+                    <div className="result-editor-section" style={{ marginTop: '16px' }}>
+                      <h3><Target size={18} /> Penales de FURIA ({penalties.length})</h3>
+                      <div className="goals-editor" style={{ minHeight: penalties.length > 0 ? `${penalties.length * 80}px` : '60px' }}>
+                        {penalties.length > 0 ? (
+                          <>
+                            {penalties.map((penalty, index) => (
+                              <div key={index} className="goal-editor-item">
+                                <div className="goal-editor-field">
+                                  <label>Jugadora (Penal)</label>
+                                  <select
+                                    value={penalty.playerId}
+                                    onChange={(e) => handlePenaltyChange(index, e.target.value)}
+                                    disabled={saving}
+                                  >
+                                    {players.map((player) => (
+                                      <option key={player.id} value={player.id}>
+                                        {player.displayName}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </div>
+
+                                <button
+                                  onClick={() => handleRemovePenalty(index)}
+                                  className="btn-remove-goal"
+                                  disabled={saving}
+                                >
+                                  <Trash2 size={16} />
+                                </button>
+                              </div>
+                            ))}
+
+                            <button
+                              onClick={handleAddPenalty}
+                              className="btn-add-goal"
+                              disabled={saving}
+                            >
+                              <Plus size={16} /> Agregar Penal
+                            </button>
+                          </>
+                        ) : (
+                          <div className="no-goals-message">
+                            <button
+                              onClick={handleAddPenalty}
+                              className="btn-add-goal"
+                              disabled={saving}
+                            >
+                              <Plus size={16} /> Agregar Penal
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             <div className="result-editor-section">
               <h3>⭐ Figura del Partido (Opcional)</h3>
               <div className="figure-selector">
@@ -1475,10 +1716,10 @@ const MatchHistory = memo(() => {
             </div>
 
             <div className="result-editor-section">
-              <h3>⚽ Goles de FURIA ({goals.length}/{furiaGoals})</h3>
+              <h3><Target size={18} /> Goles de FURIA ({goals.length}/{furiaGoals})</h3>
               {goals.length !== furiaGoals && furiaGoals > 0 && (
                 <div className="goals-validation-warning">
-                  ⚠️ Debes completar todos los goles antes de guardar. Faltan {furiaGoals - goals.length} gol(es).
+                  <AlertTriangle size={14} /> Debes completar todos los goles antes de guardar. Faltan {furiaGoals - goals.length} gol(es).
                 </div>
               )}
               <div className="goals-editor" style={{ minHeight: furiaGoals > 0 ? `${furiaGoals * 80}px` : '60px' }}>
@@ -1528,7 +1769,7 @@ const MatchHistory = memo(() => {
                           className="btn-remove-goal"
                           disabled={saving}
                         >
-                          🗑️
+                          <Trash2 size={16} />
                         </button>
                       </div>
                     ))}
@@ -1538,7 +1779,7 @@ const MatchHistory = memo(() => {
                       className="btn-add-goal"
                       disabled={saving || goals.length >= furiaGoals}
                     >
-                      ➕ Agregar Gol
+                      <Plus size={16} /> Agregar Gol
                     </button>
                   </>
                 ) : (
@@ -1588,7 +1829,7 @@ const MatchHistory = memo(() => {
                           className="btn-remove-goal"
                           disabled={saving}
                         >
-                          🗑️
+                          <Trash2 size={16} />
                         </button>
                       </div>
                     ))}
