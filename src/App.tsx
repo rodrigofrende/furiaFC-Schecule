@@ -13,6 +13,7 @@ const Admin = lazy(() => import('./pages/Admin'));
 const Header = lazy(() => import('./components/Header'));
 const Navigation = lazy(() => import('./components/Navigation'));
 const ReadOnlyBanner = lazy(() => import('./components/ReadOnlyBanner'));
+const AscensoAnnouncementModal = lazy(() => import('./components/AscensoAnnouncementModal'));
 
 const PrivateRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, loading } = useAuth();
@@ -61,6 +62,7 @@ const AppContent = () => {
               <>
                 <ReadOnlyBanner />
                 <Header />
+                <AscensoAnnouncementModal />
                 <div className="app-container">
                   <Navigation />
                   <main className="main-content">
