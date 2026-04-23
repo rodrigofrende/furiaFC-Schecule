@@ -21,7 +21,7 @@ const Login = () => {
     try {
       // Special handling for demo user 'testfuria'
       if (email.toLowerCase() === 'testfuria') {
-        signIn('testfuria@demo.com', 'Test Furia', 'VIEWER');
+        await signIn('testfuria@demo.com', 'Test Furia', 'VIEWER');
         setLoading(false);
         return;
       }
@@ -60,7 +60,7 @@ const Login = () => {
 
       // Si es PLAYER, no requiere contraseña
       const displayName = userData.alias || email.split('@')[0];
-      signIn(userData.email, displayName, role);
+      await signIn(userData.email, displayName, role);
     } catch (err: unknown) {
       setError('Error al iniciar sesión. Intentá de nuevo.');
       console.error(err);
@@ -127,4 +127,3 @@ const Login = () => {
 };
 
 export default Login;
-
