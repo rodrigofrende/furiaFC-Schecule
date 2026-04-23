@@ -298,6 +298,46 @@
   font-size: var(--text-base);
 }
 
+.login-summary-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-md);
+  margin-bottom: var(--space-lg);
+}
+
+.summary-card {
+  background: rgba(30, 64, 175, 0.04);
+  border: 1px solid rgba(30, 64, 175, 0.12);
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+}
+
+.summary-card h3 {
+  margin: 0 0 var(--space-sm);
+  font-size: var(--text-base);
+  font-family: var(--font-heading);
+  color: var(--color-furia-blue-dark);
+}
+
+.summary-card p {
+  margin: 0;
+}
+
+.summary-card ol {
+  margin: 0;
+  padding-left: var(--space-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.summary-card li {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  color: var(--color-gray);
+}
+
 /* Role badges */
 .role-badge {
   display: inline-block;
@@ -609,6 +649,11 @@
   .users-table th,
   .users-table td {
     padding: var(--space-sm);
+  }
+
+  .summary-card li {
+    flex-direction: column;
+    align-items: flex-start;
   }
   
   .actions-cell {
