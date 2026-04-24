@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { collection, getDocs, writeBatch, doc, deleteDoc, query, where } from 'firebase/firestore';
+import { collection, getDocs, writeBatch, doc, deleteDoc, query, where, orderBy, limit, Timestamp } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { useAuth } from '../context/AuthContext';
 import Modal from './Modal';
@@ -17,6 +17,22 @@ interface UserData {
   role: UserRole;
   position?: string;
   createdAt?: Date;
+}
+
+interface LoginLog {
+  id: string;
+  userId: string;
+  email: string;
+  displayName: string;
+  role: UserRole;
+  loggedInAt: Date | null;
+}
+
+interface LoginSummary {
+  userId: string;
+  displayName: string;
+  email: string;
+  totalLogins: number;
 }
 
 const AdminPanel = () => {
@@ -38,6 +54,12 @@ const AdminPanel = () => {
   const [deletingHistory, setDeletingHistory] = useState(false);
   const [reprocessingStats, setReprocessingStats] = useState(false);
   const [clearingFixture, setClearingFixture] = useState(false);
+  const [loginLogs, setLoginLogs] = useState<LoginLog[]>([]);
+  const [loginSummary, setLoginSummary] = useState<LoginSummary[]>([]);
+  const [loadingLogs, setLoadingLogs] = useState(false);
+  const totalLogins = loginLogs.length;
+  const uniqueUsers = loginSummary.length;
+  const latestLogin = loginLogs[0]?.loggedInAt ?? null;
 
   // Cargar usuarios al montar el componente
   useEffect(() => {
@@ -45,6 +67,7 @@ const AdminPanel = () => {
       return;
     }
     loadUsers();
+    loadLoginLogs();
   }, [user]);
 
   // Permitir acceso a ADMIN y VIEWER (solo lectura)
@@ -60,6 +83,71 @@ const AdminPanel = () => {
       console.error('Error loading users:', error);
       alert('❌ Error al cargar los usuarios');
     }
+  };
+
+  const loadLoginLogs = async () => {
+    setLoadingLogs(true);
+    try {
+      const logsQuery = query(
+        collection(db, 'login_logs'),
+        orderBy('loggedInAt', 'desc'),
+        limit(200)
+      );
+      const logsSnapshot = await getDocs(logsQuery);
+
+      const logs: LoginLog[] = logsSnapshot.docs.map((logDoc) => {
+        const data = logDoc.data();
+        const firestoreDate = data.loggedInAt instanceof Timestamp ? data.loggedInAt.toDate() : null;
+
+        return {
+          id: logDoc.id,
+          userId: data.userId || data.email || 'desconocido',
+          email: data.email || 'sin-email',
+          displayName: data.displayName || data.email || 'Sin nombre',
+          role: (data.role || 'PLAYER') as UserRole,
+          loggedInAt: firestoreDate
+        };
+      });
+
+      const summaryMap = new Map<string, LoginSummary>();
+
+      logs.forEach((log) => {
+        const key = log.userId;
+        const existing = summaryMap.get(key);
+
+        if (existing) {
+          existing.totalLogins += 1;
+        } else {
+          summaryMap.set(key, {
+            userId: log.userId,
+            displayName: log.displayName,
+            email: log.email,
+            totalLogins: 1
+          });
+        }
+      });
+
+      const summary = Array.from(summaryMap.values()).sort((a, b) => b.totalLogins - a.totalLogins);
+
+      setLoginLogs(logs);
+      setLoginSummary(summary);
+    } catch (error) {
+      console.error('Error loading login logs:', error);
+      alert('❌ Error al cargar el historial de inicios de sesión');
+    } finally {
+      setLoadingLogs(false);
+    }
+  };
+
+  const formatLoginDate = (date: Date | null) => {
+    if (!date) return 'Pendiente de sincronizar';
+    return date.toLocaleString('es-AR', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
   };
 
   const validateEmail = (email: string) => {
@@ -542,14 +630,14 @@ const AdminPanel = () => {
               ) : (
                 users.map((userData) => (
                   <tr key={userData.id}>
-                    <td>{userData.email}</td>
-                    <td>{userData.alias}</td>
-                    <td>
+                    <td data-label="Email">{userData.email}</td>
+                    <td data-label="Alias">{userData.alias}</td>
+                    <td data-label="Rol">
                       <span className={`role-badge role-${userData.role.toLowerCase()}`}>
                         {userData.role === 'ADMIN' ? 'ADMIN' : userData.role === 'VIEWER' ? 'VIEWER' : 'JUGADORA'}
                       </span>
                     </td>
-                    <td>{userData.role === 'PLAYER' ? (userData.position || '-') : '-'}</td>
+                    <td data-label="Posición">{userData.role === 'PLAYER' ? (userData.position || '-') : '-'}</td>
                     <td className="actions-cell">
                       <button
                         onClick={() => openEditUserModal(userData)}
@@ -568,6 +656,88 @@ const AdminPanel = () => {
                         <Trash2 size={16} />
                       </button>
                     </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Sección de Logs de Login */}
+      <div className="admin-section">
+        <div className="section-header">
+          <h2>Historial de Logins</h2>
+          <button
+            onClick={loadLoginLogs}
+            className="btn-secondary"
+            disabled={loadingLogs}
+          >
+            {loadingLogs ? 'Actualizando...' : 'Actualizar'}
+          </button>
+        </div>
+
+        <div className="login-summary-grid">
+          <div className="summary-card summary-card-metric">
+            <h3>Logins totales</h3>
+            <p className="metric-value">{totalLogins}</p>
+          </div>
+
+          <div className="summary-card summary-card-metric">
+            <h3>Usuarios únicos</h3>
+            <p className="metric-value">{uniqueUsers}</p>
+          </div>
+
+          <div className="summary-card summary-card-metric">
+            <h3>Último acceso</h3>
+            <p className="metric-value metric-value-small">{formatLoginDate(latestLogin)}</p>
+          </div>
+
+          <div className="summary-card">
+            <h3>Usuarios más activos</h3>
+            {loginSummary.length === 0 ? (
+              <p>No hay datos de inicios de sesión todavía.</p>
+            ) : (
+              <ol>
+                {loginSummary.slice(0, 5).map((item) => (
+                  <li key={item.userId}>
+                    <strong>{item.displayName}</strong>
+                    <span>{item.totalLogins} ingresos</span>
+                  </li>
+                ))}
+              </ol>
+            )}
+          </div>
+        </div>
+
+        <div className="users-table-container">
+          <table className="users-table">
+            <thead>
+              <tr>
+                <th>Usuario</th>
+                <th>Email</th>
+                <th>Rol</th>
+                <th>Hora de login</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loginLogs.length === 0 ? (
+                <tr>
+                  <td colSpan={4} className="no-users">
+                    {loadingLogs ? 'Cargando logins...' : 'No hay logins registrados'}
+                  </td>
+                </tr>
+              ) : (
+                loginLogs.map((log) => (
+                  <tr key={log.id}>
+                    <td data-label="Usuario">{log.displayName}</td>
+                    <td data-label="Email">{log.email}</td>
+                    <td data-label="Rol">
+                      <span className={`role-badge role-${log.role.toLowerCase()}`}>
+                        {log.role === 'ADMIN' ? 'ADMIN' : log.role === 'VIEWER' ? 'VIEWER' : 'JUGADORA'}
+                      </span>
+                    </td>
+                    <td data-label="Hora de login">{formatLoginDate(log.loggedInAt)}</td>
                   </tr>
                 ))
               )}
