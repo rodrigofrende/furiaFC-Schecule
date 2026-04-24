@@ -386,14 +386,14 @@
 }
 
 /* Action buttons in table */
-.actions-cell {
+.admin-panel .actions-cell {
   display: flex;
   gap: var(--space-xs);
   align-items: center;
   justify-content: flex-end;
 }
 
-.btn-icon {
+.admin-panel .btn-icon {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -406,34 +406,34 @@
   background: var(--color-white);
 }
 
-.btn-edit {
+.admin-panel .btn-edit {
   color: var(--color-furia-gold);
   border-color: var(--color-furia-gold);
 }
 
-.btn-edit:hover:not(:disabled) {
+.admin-panel .btn-edit:hover:not(:disabled) {
   background: rgba(184, 134, 11, 0.1);
   transform: scale(1.05);
 }
 
-.btn-edit:disabled {
+.admin-panel .btn-edit:disabled {
   color: var(--color-gray-lighter);
   border-color: var(--color-gray-lighter);
   cursor: not-allowed;
   transform: none;
 }
 
-.btn-delete {
+.admin-panel .btn-delete {
   color: var(--color-danger);
   border-color: var(--color-danger);
 }
 
-.btn-delete:hover:not(:disabled) {
+.admin-panel .btn-delete:hover:not(:disabled) {
   background: rgba(220, 38, 38, 0.1);
   transform: scale(1.05);
 }
 
-.btn-delete:disabled {
+.admin-panel .btn-delete:disabled {
   color: var(--color-gray-lighter);
   border-color: var(--color-gray-lighter);
   cursor: not-allowed;
@@ -738,11 +738,11 @@
     align-items: flex-start;
   }
   
-  .actions-cell {
+  .admin-panel .actions-cell {
     gap: 4px;
   }
 
-  .btn-icon {
+  .admin-panel .btn-icon {
     width: 32px;
     height: 32px;
   }
