@@ -57,6 +57,9 @@ const AdminPanel = () => {
   const [loginLogs, setLoginLogs] = useState<LoginLog[]>([]);
   const [loginSummary, setLoginSummary] = useState<LoginSummary[]>([]);
   const [loadingLogs, setLoadingLogs] = useState(false);
+  const totalLogins = loginLogs.length;
+  const uniqueUsers = loginSummary.length;
+  const latestLogin = loginLogs[0]?.loggedInAt ?? null;
 
   // Cargar usuarios al montar el componente
   useEffect(() => {
@@ -627,14 +630,14 @@ const AdminPanel = () => {
               ) : (
                 users.map((userData) => (
                   <tr key={userData.id}>
-                    <td>{userData.email}</td>
-                    <td>{userData.alias}</td>
-                    <td>
+                    <td data-label="Email">{userData.email}</td>
+                    <td data-label="Alias">{userData.alias}</td>
+                    <td data-label="Rol">
                       <span className={`role-badge role-${userData.role.toLowerCase()}`}>
                         {userData.role === 'ADMIN' ? 'ADMIN' : userData.role === 'VIEWER' ? 'VIEWER' : 'JUGADORA'}
                       </span>
                     </td>
-                    <td>{userData.role === 'PLAYER' ? (userData.position || '-') : '-'}</td>
+                    <td data-label="Posición">{userData.role === 'PLAYER' ? (userData.position || '-') : '-'}</td>
                     <td className="actions-cell">
                       <button
                         onClick={() => openEditUserModal(userData)}
@@ -675,6 +678,21 @@ const AdminPanel = () => {
         </div>
 
         <div className="login-summary-grid">
+          <div className="summary-card summary-card-metric">
+            <h3>Logins totales</h3>
+            <p className="metric-value">{totalLogins}</p>
+          </div>
+
+          <div className="summary-card summary-card-metric">
+            <h3>Usuarios únicos</h3>
+            <p className="metric-value">{uniqueUsers}</p>
+          </div>
+
+          <div className="summary-card summary-card-metric">
+            <h3>Último acceso</h3>
+            <p className="metric-value metric-value-small">{formatLoginDate(latestLogin)}</p>
+          </div>
+
           <div className="summary-card">
             <h3>Usuarios más activos</h3>
             {loginSummary.length === 0 ? (
@@ -712,14 +730,14 @@ const AdminPanel = () => {
               ) : (
                 loginLogs.map((log) => (
                   <tr key={log.id}>
-                    <td>{log.displayName}</td>
-                    <td>{log.email}</td>
-                    <td>
+                    <td data-label="Usuario">{log.displayName}</td>
+                    <td data-label="Email">{log.email}</td>
+                    <td data-label="Rol">
                       <span className={`role-badge role-${log.role.toLowerCase()}`}>
                         {log.role === 'ADMIN' ? 'ADMIN' : log.role === 'VIEWER' ? 'VIEWER' : 'JUGADORA'}
                       </span>
                     </td>
-                    <td>{formatLoginDate(log.loggedInAt)}</td>
+                    <td data-label="Hora de login">{formatLoginDate(log.loggedInAt)}</td>
                   </tr>
                 ))
               )}

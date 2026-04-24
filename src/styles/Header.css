@@ -3,10 +3,10 @@
   top: 0;
   left: 0;
   right: 0;
-  background: linear-gradient(135deg, var(--color-furia-black) 0%, var(--color-furia-black-light) 100%);
-  box-shadow: var(--shadow-lg);
+  background: linear-gradient(160deg, #0a0f1d 0%, #111827 40%, #0f172a 100%);
+  box-shadow: 0 8px 24px rgba(2, 6, 23, 0.45);
   z-index: var(--z-fixed);
-  border-bottom: 3px solid var(--color-furia-blue);
+  border-bottom: 1px solid rgba(59, 130, 246, 0.5);
 }
 
 .header-content {
@@ -436,4 +436,3 @@
     height: 22px;
   }
 }
-
