@@ -298,6 +298,63 @@
   font-size: var(--text-base);
 }
 
+.login-summary-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-md);
+  margin-bottom: var(--space-lg);
+}
+
+.summary-card {
+  background: rgba(30, 64, 175, 0.04);
+  border: 1px solid rgba(30, 64, 175, 0.12);
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+}
+
+.summary-card-metric {
+  background: linear-gradient(135deg, rgba(30, 64, 175, 0.1), rgba(255, 255, 255, 0.95));
+}
+
+.summary-card h3 {
+  margin: 0 0 var(--space-sm);
+  font-size: var(--text-base);
+  font-family: var(--font-heading);
+  color: var(--color-furia-blue-dark);
+}
+
+.metric-value {
+  margin: 0;
+  font-size: clamp(1.5rem, 3vw, 2rem);
+  font-weight: var(--weight-bold);
+  color: var(--color-furia-blue-dark);
+  font-family: var(--font-heading);
+}
+
+.metric-value-small {
+  font-size: var(--text-base);
+  line-height: 1.4;
+}
+
+.summary-card p {
+  margin: 0;
+}
+
+.summary-card ol {
+  margin: 0;
+  padding-left: var(--space-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.summary-card li {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  color: var(--color-gray);
+}
+
 /* Role badges */
 .role-badge {
   display: inline-block;
@@ -567,6 +624,14 @@
     flex-wrap: nowrap;
   }
 
+  .login-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .summary-card:last-child {
+    grid-column: 1 / -1;
+  }
+
   .users-table th,
   .users-table td {
     padding: var(--space-lg) var(--space-md);
@@ -586,6 +651,14 @@
   .admin-actions {
     grid-template-columns: repeat(3, 1fr);
   }
+
+  .login-summary-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .summary-card:last-child {
+    grid-column: span 1;
+  }
   
   .confirmation-actions {
     flex-wrap: nowrap;
@@ -604,11 +677,65 @@
   
   .users-table {
     font-size: var(--text-xs);
+    min-width: 100%;
   }
   
-  .users-table th,
+  .users-table thead {
+    display: none;
+  }
+
+  .users-table tbody,
+  .users-table tr,
   .users-table td {
+    display: block;
+    width: 100%;
+  }
+
+  .users-table tr {
+    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
     padding: var(--space-sm);
+  }
+
+  .users-table td {
+    padding: var(--space-xs) 0;
+    border: none;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--space-sm);
+    text-align: right;
+  }
+
+  .users-table td::before {
+    content: attr(data-label);
+    color: var(--color-gray-medium);
+    font-weight: var(--weight-semibold);
+    text-align: left;
+  }
+
+  .users-table .actions-cell {
+    justify-content: flex-end;
+    display: flex;
+  }
+
+  .users-table .actions-cell::before {
+    content: 'Acciones';
+    margin-right: auto;
+  }
+
+  .users-table .no-users {
+    text-align: center;
+    justify-content: center;
+    padding: var(--space-md) 0 !important;
+  }
+
+  .users-table .no-users::before {
+    content: none;
+  }
+
+  .summary-card li {
+    flex-direction: column;
+    align-items: flex-start;
   }
   
   .actions-cell {

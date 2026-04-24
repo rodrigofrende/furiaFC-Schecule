@@ -36,17 +36,17 @@
 
 /* Fecha Card */
 .fecha-card {
-  background: var(--color-white);
+  background: var(--surface-card);
   border-radius: var(--radius-lg);
   padding: var(--space-xl);
-  box-shadow: var(--shadow-lg);
-  border: 2px solid rgba(30, 64, 175, 0.1);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.09);
+  border: var(--border-soft);
   transition: all var(--transition-base);
 }
 
 .fecha-card:hover {
-  transform: translateY(-4px);
-  box-shadow: var(--shadow-xl);
+  transform: translateY(-4px) scale(1.005);
+  box-shadow: 0 16px 34px rgba(15, 23, 42, 0.15);
   border-color: rgba(30, 64, 175, 0.3);
 }
 
@@ -541,4 +541,3 @@
     font-size: var(--text-xs);
   }
 }
-

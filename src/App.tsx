@@ -14,6 +14,7 @@ const Header = lazy(() => import('./components/Header'));
 const Navigation = lazy(() => import('./components/Navigation'));
 const ReadOnlyBanner = lazy(() => import('./components/ReadOnlyBanner'));
 const AscensoAnnouncementModal = lazy(() => import('./components/AscensoAnnouncementModal'));
+const SHOW_ASCENSO_MODAL = import.meta.env.VITE_ENABLE_ASCENSO_MODAL === 'true';
 
 const PrivateRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, loading } = useAuth();
@@ -62,7 +63,7 @@ const AppContent = () => {
               <>
                 <ReadOnlyBanner />
                 <Header />
-                <AscensoAnnouncementModal />
+                {SHOW_ASCENSO_MODAL && <AscensoAnnouncementModal />}
                 <div className="app-container">
                   <Navigation />
                   <main className="main-content">

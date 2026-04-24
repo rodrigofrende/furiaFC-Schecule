@@ -121,15 +121,15 @@
 
 /* Match Card - Mobile First */
 .match-card {
-  background: white;
+  background: var(--surface-card);
   border-radius: var(--radius-lg);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08), 0 2px 4px rgba(0, 0, 0, 0.04);
-  border: 1px solid #e5e7eb;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08), 0 2px 6px rgba(15, 23, 42, 0.05);
+  border: var(--border-soft);
   overflow: hidden;
 }
 
 .match-card-header {
-  background: linear-gradient(135deg, var(--color-furia-black) 0%, var(--color-furia-black-light) 100%);
+  background: linear-gradient(150deg, #0f172a 0%, #111827 100%);
   color: white;
   padding: var(--space-sm) var(--space-md);
   display: flex;

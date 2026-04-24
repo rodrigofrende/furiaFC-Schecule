@@ -155,6 +155,12 @@ button {
   --z-modal: 1050;
   --z-popover: 1060;
   --z-tooltip: 1070;
+
+  /* Surface tokens */
+  --surface-page: linear-gradient(180deg, #f3f6fb 0%, #eef2f7 100%);
+  --surface-card: linear-gradient(145deg, #ffffff 0%, #f8fafc 100%);
+  --border-soft: 1px solid rgba(30, 64, 175, 0.1);
+  --ring-soft: 0 0 0 3px rgba(30, 64, 175, 0.12);
 }
 
 /* ==========================================
@@ -166,7 +172,7 @@ body {
   font-weight: var(--weight-normal);
   font-size: var(--text-base);
   color: var(--color-gray);
-  background-color: var(--color-gray-lightest);
+  background: var(--surface-page);
 }
 
 h1, h2, h3, h4, h5, h6 {
@@ -246,6 +252,35 @@ small {
 
 .text-bold {
   font-weight: var(--weight-bold);
+}
+
+/* ==========================================
+   APP-WIDE PAGE SHELL (CONSISTENT LAYOUT)
+   ========================================== */
+
+.home-container,
+.statistics-container,
+.fixture-container,
+.match-history-container,
+.admin-panel {
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: clamp(1rem, 2vw, 1.5rem);
+  background: rgba(255, 255, 255, 0.6);
+  border-radius: var(--radius-xl);
+  border: var(--border-soft);
+  box-shadow: 0 10px 35px rgba(15, 23, 42, 0.08);
+  backdrop-filter: blur(4px);
+}
+
+.home-container h1,
+.statistics-container h1,
+.fixture-container h1,
+.match-history-container h1,
+.admin-panel h1 {
+  margin-bottom: var(--space-xl);
+  color: var(--color-furia-blue-dark);
+  letter-spacing: 0.8px;
 }
 
 /* Responsive Typography */

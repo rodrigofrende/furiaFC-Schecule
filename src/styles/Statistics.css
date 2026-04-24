@@ -39,9 +39,9 @@
   user-select: none;
   margin-bottom: 24px;
   padding: 18px 24px;
-  background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+  background: var(--surface-card);
   border-radius: 14px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   border: 2px solid rgba(30, 64, 175, 0.1);
   border-left: 5px solid var(--color-furia-blue);
@@ -67,7 +67,7 @@
 
 .section-header:hover {
   border-color: rgba(30, 64, 175, 0.3);
-  box-shadow: 0 6px 24px rgba(30, 64, 175, 0.18);
+  box-shadow: 0 12px 28px rgba(30, 64, 175, 0.2);
   /* transform: translateX(4px); - Removido para evitar layout shift */
 }
 

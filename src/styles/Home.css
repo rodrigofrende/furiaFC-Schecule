@@ -23,11 +23,11 @@
 }
 
 .event-card {
-  background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
-  border-radius: 12px;
+  background: var(--surface-card);
+  border-radius: var(--radius-lg);
   padding: 24px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-  border: 1px solid rgba(0, 0, 0, 0.05);
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
+  border: var(--border-soft);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
   overflow: hidden;
@@ -48,8 +48,8 @@
 }
 
 .event-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+  transform: translateY(-4px) scale(1.005);
+  box-shadow: 0 14px 30px rgba(15, 23, 42, 0.16);
   border-color: rgba(30, 64, 175, 0.2);
 }
 
@@ -1378,4 +1378,3 @@ div[role="tooltip"] {
     font-size: 0.8rem;
   }
 }
-

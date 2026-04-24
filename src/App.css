@@ -6,7 +6,7 @@
   display: flex;
   min-height: 100vh;
   padding-top: 0; /* No padding needed - header is fixed and banner has its own margin */
-  background-color: var(--color-gray-lightest);
+  background: var(--surface-page);
   background-image: 
     repeating-linear-gradient(
       0deg,
@@ -26,10 +26,13 @@
 
 .main-content {
   flex: 1;
-  padding: var(--space-xl);
+  padding: clamp(0.75rem, 2vw, 1.5rem);
   margin-left: 220px; /* Default mobile width */
   max-width: calc(100% - 220px);
   width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
 }
 
 .loading {
@@ -79,7 +82,7 @@
 .btn-primary:hover {
   background-color: var(--color-furia-blue-dark);
   box-shadow: var(--shadow-md);
-  transform: translateY(-1px);
+  transform: translateY(-1px) scale(1.01);
 }
 
 .btn-primary:active {
@@ -104,7 +107,7 @@
   background-color: var(--color-furia-black-light);
   border-color: var(--color-furia-blue);
   box-shadow: var(--shadow-md);
-  transform: translateY(-1px);
+  transform: translateY(-1px) scale(1.01);
 }
 
 .btn-danger {
@@ -117,7 +120,7 @@
   background-color: var(--color-danger);
   color: var(--color-white);
   box-shadow: var(--shadow-md);
-  transform: translateY(-1px);
+  transform: translateY(-1px) scale(1.01);
 }
 
 .btn-gold {
@@ -161,7 +164,7 @@ textarea:focus,
 select:focus {
   outline: none;
   border-color: var(--color-furia-blue);
-  box-shadow: 0 0 0 3px rgba(30, 64, 175, 0.1);
+  box-shadow: var(--ring-soft);
 }
 
 input:disabled,

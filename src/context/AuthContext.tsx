@@ -1,12 +1,12 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
 import { type User, type PlayerPosition } from '../types';
 import { db } from '../config/firebase';
-import { collection, query, where, getDocs, doc, updateDoc, addDoc, Timestamp } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, updateDoc, addDoc, Timestamp, serverTimestamp } from 'firebase/firestore';
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  signIn: (email: string, displayName: string, role: 'ADMIN' | 'PLAYER' | 'VIEWER') => void;
+  signIn: (email: string, displayName: string, role: 'ADMIN' | 'PLAYER' | 'VIEWER') => Promise<void>;
   signOut: () => void;
   updateDisplayName: (newName: string) => void;
   updateBirthday: (birthday: string) => Promise<void>;
@@ -17,6 +17,8 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const AUTH_STORAGE_KEY = 'furiafc_auth_user';
+const AUTH_LOGIN_AT_KEY = 'furiafc_auth_login_at';
+const AUTH_SESSION_DURATION_MS = 60 * 60 * 1000; // 1 hora
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
@@ -24,19 +26,49 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     const storedUser = localStorage.getItem(AUTH_STORAGE_KEY);
+    const loginAt = localStorage.getItem(AUTH_LOGIN_AT_KEY);
     if (storedUser) {
       try {
+        const loginTimestamp = loginAt ? Number(loginAt) : 0;
+        const isSessionExpired = !loginTimestamp || Date.now() - loginTimestamp > AUTH_SESSION_DURATION_MS;
+
+        if (isSessionExpired) {
+          localStorage.removeItem(AUTH_STORAGE_KEY);
+          localStorage.removeItem(AUTH_LOGIN_AT_KEY);
+          setLoading(false);
+          return;
+        }
+
         const parsedUser = JSON.parse(storedUser);
         setUser(parsedUser);
       } catch (error) {
         console.error('Error al cargar usuario:', error);
         localStorage.removeItem(AUTH_STORAGE_KEY);
+        localStorage.removeItem(AUTH_LOGIN_AT_KEY);
       }
     }
     setLoading(false);
   }, []);
 
-  const signIn = (email: string, displayName: string, role: 'ADMIN' | 'PLAYER' | 'VIEWER') => {
+  useEffect(() => {
+    if (!user) return;
+
+    const intervalId = setInterval(() => {
+      const loginAt = localStorage.getItem(AUTH_LOGIN_AT_KEY);
+      const loginTimestamp = loginAt ? Number(loginAt) : 0;
+      const isSessionExpired = !loginTimestamp || Date.now() - loginTimestamp > AUTH_SESSION_DURATION_MS;
+
+      if (isSessionExpired) {
+        setUser(null);
+        localStorage.removeItem(AUTH_STORAGE_KEY);
+        localStorage.removeItem(AUTH_LOGIN_AT_KEY);
+      }
+    }, 60 * 1000);
+
+    return () => clearInterval(intervalId);
+  }, [user]);
+
+  const signIn = async (email: string, displayName: string, role: 'ADMIN' | 'PLAYER' | 'VIEWER') => {
     const newUser: User = {
       id: email,
       email,
@@ -45,6 +77,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     };
     setUser(newUser);
     localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(newUser));
+    localStorage.setItem(AUTH_LOGIN_AT_KEY, String(Date.now()));
+
+    try {
+      await addDoc(collection(db, 'login_logs'), {
+        userId: email,
+        email,
+        displayName,
+        role,
+        loggedInAt: serverTimestamp()
+      });
+    } catch (error) {
+      console.error('Error al registrar login:', error);
+    }
   };
 
   // Helper to check if user is in read-only mode
@@ -53,6 +98,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const signOut = () => {
     setUser(null);
     localStorage.removeItem(AUTH_STORAGE_KEY);
+    localStorage.removeItem(AUTH_LOGIN_AT_KEY);
   };
 
   const updateDisplayName = async (newName: string) => {
@@ -241,4 +287,3 @@ export const useAuth = () => {
   }
   return context;
 };
-
